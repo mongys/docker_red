@@ -32,6 +32,7 @@ poetry shell
 uvicorn main:app --reload
 
 5. Инициализация базы данных
+CREATE DATABASE redsoft_docker;
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
