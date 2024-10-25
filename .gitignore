@@ -1,0 +1,7 @@
+# Основные файлы Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.pyd
+
