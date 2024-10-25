@@ -1,25 +1,52 @@
-# domain/exceptions.py
-
 class DomainException(Exception):
-    """Base exception for domain errors."""
+    """
+    Базовое исключение для ошибок доменной логики.
+
+    Все доменные исключения наследуются от этого класса.
+    """
     pass
+
 
 class AuthenticationException(DomainException):
-    """Raised when authentication fails."""
+    """
+    Исключение, вызываемое при ошибке аутентификации.
+
+    Возникает, когда аутентификация пользователя не удалась из-за неверных учетных данных.
+    """
     pass
+
 
 class UserAlreadyExistsException(DomainException):
-    """Raised when a user already exists."""
+    """
+    Исключение, вызываемое при создании пользователя, если пользователь уже существует.
+
+    Возникает при попытке регистрации пользователя с именем, которое уже занято.
+    """
     pass
+
 
 class InvalidTokenException(DomainException):
-    """Raised when a token is invalid."""
+    """
+    Исключение, вызываемое при использовании недействительного токена.
+
+    Возникает, если токен доступа невалиден, истек или не может быть декодирован.
+    """
     pass
+
 
 class ContainerNotFoundException(DomainException):
-    """Raised when a container is not found."""
+    """
+    Исключение, вызываемое при отсутствии контейнера.
+
+    Возникает, если указанный контейнер не найден в системе.
+    """
     pass
 
+
 class DockerAPIException(DomainException):
-    """Raised for Docker API errors."""
+    """
+    Исключение для ошибок, связанных с API Docker.
+
+    Возникает при ошибках взаимодействия с Docker API, например, при невозможности выполнения команды.
+    """
     pass

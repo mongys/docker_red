@@ -9,12 +9,29 @@ from infrastructure.git_helper import GitHelper
 
 logger = logging.getLogger(__name__)
 
+
 class DockerContainerRepository(ContainerRepository):
+    """
+    Класс репозитория Docker-контейнеров, реализующий интерфейс ContainerRepository.
+
+    Использует помощники DockerHelper и GitHelper для управления контейнерами и репозиториями Git.
+    """
+
     def __init__(self):
+        """Инициализация помощников Docker и Git для взаимодействия с контейнерами и репозиториями."""
         self.docker_helper = DockerHelper()
         self.git_helper = GitHelper()
 
     async def list_containers(self) -> List[Container]:
+        """
+        Получение списка всех Docker-контейнеров.
+
+        Returns:
+            List[Container]: Список объектов контейнеров.
+        
+        Raises:
+            DockerAPIException: В случае ошибки взаимодействия с Docker API.
+        """
         try:
             containers = self.docker_helper.list_containers()
             return [
@@ -31,24 +48,63 @@ class DockerContainerRepository(ContainerRepository):
             raise DockerAPIException(str(e))
 
     async def start_container(self, container_name: str) -> None:
+        """
+        Запуск контейнера по его имени.
+
+        Args:
+            container_name (str): Имя контейнера для запуска.
+        
+        Raises:
+            ContainerNotFoundException: Если контейнер с указанным именем не найден.
+        """
         container = self.docker_helper.get_container_by_name(container_name)
         if not container:
             raise ContainerNotFoundException(f"Container {container_name} not found")
         container.start()
 
     async def stop_container(self, container_name: str) -> None:
+        """
+        Остановка контейнера по его имени.
+
+        Args:
+            container_name (str): Имя контейнера для остановки.
+        
+        Raises:
+            ContainerNotFoundException: Если контейнер с указанным именем не найден.
+        """
         container = self.docker_helper.get_container_by_name(container_name)
         if not container:
             raise ContainerNotFoundException(f"Container {container_name} not found")
         container.stop()
 
     async def restart_container(self, container_name: str) -> None:
+        """
+        Перезапуск контейнера по его имени.
+
+        Args:
+            container_name (str): Имя контейнера для перезапуска.
+        
+        Raises:
+            ContainerNotFoundException: Если контейнер с указанным именем не найден.
+        """
         container = self.docker_helper.get_container_by_name(container_name)
         if not container:
             raise ContainerNotFoundException(f"Container {container_name} not found")
         container.restart()
 
     async def get_container_info(self, container_name: str) -> Optional[Container]:
+        """
+        Получение информации о контейнере по его имени.
+
+        Args:
+            container_name (str): Имя контейнера для получения информации.
+        
+        Returns:
+            Optional[Container]: Объект контейнера, если он существует, иначе None.
+        
+        Raises:
+            ContainerNotFoundException: Если контейнер с указанным именем не найден.
+        """
         container = self.docker_helper.get_container_by_name(container_name)
         if not container:
             raise ContainerNotFoundException(f"Container {container_name} not found")
@@ -60,12 +116,32 @@ class DockerContainerRepository(ContainerRepository):
         )
 
     async def delete_container(self, container_name: str, force: bool = False) -> None:
+        """
+        Удаление контейнера по его имени.
+
+        Args:
+            container_name (str): Имя контейнера для удаления.
+            force (bool): Принудительное удаление контейнера. По умолчанию False.
+        
+        Raises:
+            ContainerNotFoundException: Если контейнер с указанным именем не найден.
+        """
         container = self.docker_helper.get_container_by_name(container_name)
         if not container:
             raise ContainerNotFoundException(f"Container {container_name} not found")
         container.remove(force=force)
 
     async def clone_and_run_container(self, github_url: str, dockerfile_dir: str) -> None:
+        """
+        Клонирование репозитория с GitHub и запуск контейнера на основе Dockerfile.
+
+        Args:
+            github_url (str): URL-адрес репозитория GitHub.
+            dockerfile_dir (str): Директория, содержащая Dockerfile.
+        
+        Raises:
+            DockerAPIException: Если возникает ошибка при клонировании репозитория или создании контейнера.
+        """
         repo_dir = f"./repos/{os.path.basename(github_url.rstrip('/').replace('.git', ''))}"
         try:
             self.git_helper.ensure_directory_exists('./repos')

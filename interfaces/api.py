@@ -31,6 +31,9 @@ router = APIRouter()
 # Маршрут для регистрации пользователя
 @router.post("/auth/signup", response_model=dict)
 async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends(get_auth_service)):
+    """
+    Регистрация нового пользователя.
+    """
     try:
         await auth_service.create_user(user_data.username, user_data.password)
         return {"message": "User created successfully"}
@@ -43,6 +46,9 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
 ):
+    """
+    Получение токена доступа для аутентифицированного пользователя.
+    """
     try:
         user = await auth_service.authenticate_user(form_data.username, form_data.password)
         access_token = auth_service.create_access_token(
@@ -56,6 +62,9 @@ async def login_for_access_token(
 # Получение информации о текущем пользователе
 @router.get("/auth/users/me", response_model=UserResponseModel)
 async def read_users_me(current_user: User = Depends(get_current_user)):
+    """
+    Возвращает информацию о текущем аутентифицированном пользователе.
+    """
     return UserResponseModel(username=current_user.username)
 
 # Получение списка контейнеров
@@ -64,6 +73,9 @@ async def list_containers(
     current_user: User = Depends(get_current_user),
     container_service: ContainerService = Depends(get_container_service)
 ):
+    """
+    Возвращает список всех Docker контейнеров.
+    """
     try:
         containers = await container_service.list_containers()
         return [ContainerInfoModel(**container.__dict__) for container in containers]
@@ -77,6 +89,9 @@ async def start_container(
     current_user: User = Depends(get_current_user),
     container_service: ContainerService = Depends(get_container_service)
 ):
+    """
+    Запускает указанный Docker контейнер.
+    """
     try:
         await container_service.start_container(request.container_name)
         return {"message": f"Container {request.container_name} started"}
@@ -92,6 +107,9 @@ async def stop_container(
     current_user: User = Depends(get_current_user),
     container_service: ContainerService = Depends(get_container_service)
 ):
+    """
+    Останавливает указанный Docker контейнер.
+    """
     try:
         await container_service.stop_container(request.container_name)
         return {"message": f"Container {request.container_name} stopped"}
@@ -107,6 +125,9 @@ async def restart_container(
     current_user: User = Depends(get_current_user),
     container_service: ContainerService = Depends(get_container_service)
 ):
+    """
+    Перезапускает указанный Docker контейнер.
+    """
     try:
         await container_service.restart_container(request.container_name)
         return {"message": f"Container {request.container_name} restarted"}
@@ -122,6 +143,9 @@ async def get_container_info(
     current_user: User = Depends(get_current_user),
     container_service: ContainerService = Depends(get_container_service)
 ):
+    """
+    Возвращает информацию о конкретном Docker контейнере.
+    """
     try:
         container = await container_service.get_container_info(container_name)
         if container is None:
@@ -138,6 +162,9 @@ async def delete_container(
     current_user: User = Depends(get_current_user),
     container_service: ContainerService = Depends(get_container_service)
 ):
+    """
+    Удаляет указанный Docker контейнер.
+    """
     try:
         await container_service.delete_container(request.container_name, force)
         return {"message": f"Container {request.container_name} deleted"}
@@ -154,5 +181,8 @@ async def clone_and_run_container(
     current_user: User = Depends(get_current_user),
     container_service: ContainerService = Depends(get_container_service)
 ):
+    """
+    Клонирует репозиторий Git и запускает контейнер из Dockerfile.
+    """
     background_tasks.add_task(container_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
     return {"message": "Task added to background"}
