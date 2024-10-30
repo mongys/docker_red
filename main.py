@@ -6,6 +6,14 @@ app = FastAPI()
 
 app.include_router(api_router, prefix="/api")
 
+@app.get("/config-info")
+async def config_info():
+    return {
+        "secret_key": settings.secret_key,
+        "algorithm": settings.algorithm,
+        "db_host": settings.db_host,
+        "docker_api_version": settings.docker_api_version,
+    }
 
 if __name__ == "__main__":
     import uvicorn

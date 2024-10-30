@@ -4,7 +4,7 @@ from config.config import settings
 from jose import JWTError, jwt
 
 class TokenService:
-    def __init__(self, secret_key: str = settings.SECRET_KEY, algorithm: str = "HS256"):
+    def __init__(self, secret_key: str = settings.secret_key, algorithm: str = settings.algorithm):
         self.secret_key = secret_key
         self.algorithm = algorithm
 

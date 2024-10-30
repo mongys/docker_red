@@ -36,7 +36,7 @@ def get_token_service():
     Returns:
         TokenService: Экземпляр сервиса для работы с токенами.
     """
-    return TokenService(secret_key=settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return TokenService(secret_key=settings.secret_key, algorithm=settings.algorithm)
 
 def get_auth_service(user_repo=Depends(get_user_repo), token_service=Depends(get_token_service)):
     """

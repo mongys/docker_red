@@ -19,7 +19,7 @@ class DockerHelper:
         """
         Инициализация Docker клиента с версией API, заданной в конфигурации.
         """
-        self.client = docker.from_env(version=settings.DOCKER_API_VERSION)
+        self.client = docker.from_env(version=settings.docker_api_version)
 
     def list_containers(self):
         """

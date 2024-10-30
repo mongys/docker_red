@@ -36,7 +36,7 @@ async def login_for_access_token(
         user = await auth_service.authenticate_user(form_data.username, form_data.password)
         access_token = auth_service.create_access_token(
             data={"sub": user.username},
-            expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
         )
         return {"access_token": access_token, "token_type": "bearer"}
     except AuthenticationException as e:
