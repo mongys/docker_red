@@ -2,8 +2,8 @@ import docker
 import logging
 import os
 from docker.errors import DockerException, APIError, NotFound, BuildError
-from config import settings
-from domain.exceptions import DockerAPIException
+from config.config import settings
+from src.domain.exceptions import DockerAPIException
 
 logger = logging.getLogger(__name__)
 

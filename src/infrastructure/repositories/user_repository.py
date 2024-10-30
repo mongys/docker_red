@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
-from domain.repositories import UserRepository
-from domain.entities import User
+from src.domain.repositories import UserRepository
+from src.domain.entities import User
 from src.database import get_db_connection
 
 logger = logging.getLogger(__name__)

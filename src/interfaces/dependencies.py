@@ -1,14 +1,12 @@
-# interfaces/dependencies.py
-
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from application.services import AuthService, ContainerService
-from infrastructure.repositories.user_repository import DatabaseUserRepository
-from infrastructure.repositories.container_repository import DockerContainerRepository
-from domain.exceptions import InvalidTokenException
-from domain.entities import User
+from src.application.services import AuthService, ContainerService
+from src.infrastructure.repositories.user_repository import DatabaseUserRepository
+from src.infrastructure.repositories.container_repository import DockerContainerRepository
+from src.domain.exceptions import InvalidTokenException
+from src.domain.entities import User
 from jose import JWTError, jwt
-from config import settings
+from config.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 

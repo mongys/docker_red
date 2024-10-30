@@ -1,15 +1,11 @@
 import logging
 from datetime import timedelta, datetime
 from typing import Optional, List
-from domain.entities import User, Container
-from domain.repositories import UserRepository, ContainerRepository
-from domain.exceptions import (
-    AuthenticationException,
-    UserAlreadyExistsException,
-    InvalidTokenException,
-)
+from src.domain.entities import User, Container
+from src.domain.repositories import UserRepository, ContainerRepository
+from src.domain.exceptions import AuthenticationException, UserAlreadyExistsException, InvalidTokenException
 from jose import JWTError, jwt
-from config import settings
+from config.config import settings
 from passlib.context import CryptContext
 
 # Настройка логирования и контекста для хэширования паролей

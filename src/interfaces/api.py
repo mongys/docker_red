@@ -1,30 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
-from application.services import AuthService, ContainerService
-from interfaces.dependencies import (
-    get_auth_service,
-    get_container_service,
-    get_current_user
-)
-from interfaces.schemas import (
-    UserCreateModel,
-    TokenModel,
-    UserResponseModel,
-    ContainerInfoModel,
-    ContainerActionRequest,
-    CloneAndRunRequest
-)
-from domain.entities import User
-from domain.exceptions import (
-    AuthenticationException,
-    UserAlreadyExistsException,
-    InvalidTokenException,
-    ContainerNotFoundException,
-    DockerAPIException
-)
+from src.application.services import AuthService, ContainerService
+from src.interfaces.dependencies import get_auth_service, get_container_service, get_current_user
+from src.interfaces.schemas import UserCreateModel, TokenModel, UserResponseModel, ContainerInfoModel, ContainerActionRequest, CloneAndRunRequest
+from src.domain.entities import User
+from src.domain.exceptions import AuthenticationException, UserAlreadyExistsException, InvalidTokenException, ContainerNotFoundException, DockerAPIException
 from typing import List
 from datetime import timedelta
-from config import settings
+from config.config import settings
 
 router = APIRouter()
 

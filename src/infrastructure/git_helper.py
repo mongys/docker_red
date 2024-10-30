@@ -1,7 +1,7 @@
 import git
 import os
 import logging
-from domain.exceptions import DockerAPIException
+from src.domain.exceptions import DockerAPIException
 
 logger = logging.getLogger(__name__)
 

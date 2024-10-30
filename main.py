@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from interfaces.api import router as api_router
-from config import settings
+from src.interfaces.api import router as api_router
+from config.config import settings
 
 app = FastAPI()
 
