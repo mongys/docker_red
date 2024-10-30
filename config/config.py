@@ -19,7 +19,10 @@ class AppSettings:
     def access_token_expire_minutes(self):
         return self._settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
-    # Настройки базы данных
+    @property
+    def db_driver(self):
+        return self._settings.DB_DRIVER
+
     @property
     def db_host(self):
         return self._settings.DB_HOST
@@ -40,10 +43,22 @@ class AppSettings:
     def db_password(self):
         return self._settings.DB_PASSWORD
 
-    # Настройки Docker
+    @property
+    def database_dsn(self):
+        """
+        Генерация строки DSN для подключения к базе данных
+        """
+        return "{}://{}:{}@{}:{}".format(
+            self.db_driver,
+            self.db_user,
+            self.db_password,
+            self.db_host,
+            self.db_port,
+            self.db_name 
+        )
+
     @property
     def docker_api_version(self):
         return self._settings.DOCKER_API_VERSION
 
-# Создаем единственный экземпляр настроек для всего приложения
 settings = AppSettings()
