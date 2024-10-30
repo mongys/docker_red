@@ -1,5 +1,3 @@
-# main.py
-
 from fastapi import FastAPI
 import asyncpg
 from config.config import settings

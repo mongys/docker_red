@@ -48,13 +48,13 @@ class AppSettings:
         """
         Генерация строки DSN для подключения к базе данных
         """
-        return "{}://{}:{}@{}:{}".format(
+        return "{}://{}:{}@{}:{}/{}".format(
             self.db_driver,
             self.db_user,
             self.db_password,
             self.db_host,
             self.db_port,
-            self.db_name 
+            self.db_name
         )
 
     @property
