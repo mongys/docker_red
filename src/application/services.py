@@ -7,47 +7,24 @@ from src.domain.exceptions import AuthenticationException, UserAlreadyExistsExce
 from jose import JWTError, jwt
 from config.config import settings
 from passlib.context import CryptContext
+from src.application.token_service import TokenService
 
-# Настройка логирования и контекста для хэширования паролей
 logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthService:
-    """
-    Сервис для управления аутентификацией и регистрацией пользователей.
-
-    Предоставляет методы для аутентификации пользователей, создания новых пользователей,
-    управления JWT-токенами и хэширования паролей.
-
-    Attributes:
-        user_repo (UserRepository): Репозиторий для взаимодействия с данными пользователей.
-    """
-
-    def __init__(self, user_repo: UserRepository):
+    def __init__(self, user_repo: UserRepository, token_service: TokenService):
         """
-        Инициализирует AuthService с указанным репозиторием пользователей.
+        Инициализирует AuthService с репозиторием пользователей и сервисом токенов.
 
         Args:
             user_repo (UserRepository): Репозиторий для доступа к данным пользователей.
+            token_service (TokenService): Сервис для создания и проверки JWT токенов.
         """
         self.user_repo = user_repo
+        self.token_service = token_service
 
     async def authenticate_user(self, username: str, password: str) -> User:
-        """
-        Аутентификация пользователя.
-
-        Проверяет существование пользователя в базе данных и проверяет правильность пароля.
-
-        Args:
-            username (str): Имя пользователя.
-            password (str): Пароль пользователя.
-
-        Raises:
-            AuthenticationException: Если пользователь не найден или пароль неверен.
-
-        Returns:
-            User: Информация о пользователе, если аутентификация успешна.
-        """
         user = await self.user_repo.get_user_by_username(username)
         if not user:
             logger.warning(f"User {username} not found")
@@ -60,16 +37,6 @@ class AuthService:
         return user
 
     async def create_user(self, username: str, password: str) -> None:
-        """
-        Создание нового пользователя с хэшированным паролем.
-
-        Args:
-            username (str): Имя пользователя.
-            password (str): Пароль пользователя.
-
-        Raises:
-            UserAlreadyExistsException: Если пользователь с таким именем уже существует.
-        """
         existing_user = await self.user_repo.get_user_by_username(username)
         if existing_user:
             logger.warning(f"User {username} already exists")
@@ -81,47 +48,35 @@ class AuthService:
         logger.info(f"User {username} created successfully")
 
     def get_password_hash(self, password: str) -> str:
-        """
-        Хэширует пароль с использованием bcrypt.
-
-        Args:
-            password (str): Пароль для хэширования.
-
-        Returns:
-            str: Хэшированный пароль.
-        """
         return pwd_context.hash(password)
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """
-        Проверка пароля пользователя.
-
-        Args:
-            plain_password (str): Введенный пользователем пароль.
-            hashed_password (str): Хэшированный пароль, сохраненный в базе данных.
-
-        Returns:
-            bool: True, если пароль верен, иначе False.
-        """
         return pwd_context.verify(plain_password, hashed_password)
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """
-        Создает JWT токен для доступа.
+        Создает JWT токен с использованием TokenService.
 
         Args:
             data (dict): Данные для включения в токен.
-            expires_delta (Optional[timedelta]): Время жизни токена, по умолчанию 15 минут.
+            expires_delta (Optional[timedelta]): Время жизни токена.
 
         Returns:
             str: Закодированный JWT токен.
         """
-        to_encode = data.copy()
-        expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
-        to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-        return encoded_jwt
+        return self.token_service.create_access_token(data, expires_delta)
 
+    def validate_token(self, token: str) -> Optional[dict]:
+        """
+        Проверяет валидность JWT токена с использованием TokenService.
+
+        Args:
+            token (str): Токен для проверки.
+
+        Returns:
+            Optional[dict]: Декодированное содержимое токена, если валиден, иначе None.
+        """
+        return self.token_service.validate_token(token)
     async def get_user_by_username(self, username: str) -> Optional[User]:
         """
         Получение пользователя по имени.
