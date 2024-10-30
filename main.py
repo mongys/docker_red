@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI
 from src.interfaces.api import router as api_router
 from config.config import settings
