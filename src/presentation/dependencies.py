@@ -9,18 +9,28 @@ from src.infrastructure.repositories.container_repository import DockerContainer
 from src.domain.exceptions import InvalidTokenException
 from src.domain.entities import User
 from jose import JWTError
+from asyncpg import Connection
+from src.database import get_db_connection
 from config.config import settings
+from fastapi import Depends, Request
+from src.infrastructure.repositories.user_repository import DatabaseUserRepository
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
-def get_user_repo() -> DatabaseUserRepository:
+def get_user_repo(request: Request) -> DatabaseUserRepository:
     """
-    Создает и возвращает экземпляр репозитория пользователей для взаимодействия с базой данных.
+    Returns an instance of DatabaseUserRepository with the database pool.
+
+    Args:
+        request (Request): The request object to access the application state.
 
     Returns:
-        DatabaseUserRepository: Экземпляр репозитория пользователей.
+        DatabaseUserRepository: An instance of the repository with the db pool.
     """
-    return DatabaseUserRepository()
+    db_pool = getattr(request.app.state, "db_session", None)
+    if db_pool is None:
+        raise HTTPException(status_code=500, detail="Database connection pool is not initialized")
+    return DatabaseUserRepository(db_pool=db_pool)
 
 def get_container_repo() -> DockerContainerRepository:
     """
@@ -114,3 +124,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme),
         raise credentials_exception
 
     return user
+
+
+async def get_db_session(db_connection: Connection = Depends(get_db_connection)):
+    """
+    Возвращает сессию базы данных для использования в репозиториях и сервисах.
+    """
+    yield db_connection

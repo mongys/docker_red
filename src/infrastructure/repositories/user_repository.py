@@ -1,18 +1,27 @@
 import logging
 from typing import Optional
+from asyncpg import Pool, Connection
 from src.domain.repositories import UserRepository
 from src.domain.entities import User
-from src.database import get_db_connection
 
 logger = logging.getLogger(__name__)
 
 class DatabaseUserRepository(UserRepository):
     """
     Реализация репозитория пользователей, взаимодействующего с базой данных.
-
+    
     Методы этого класса используют соединение с базой данных для выполнения операций
     по получению и созданию пользователей.
     """
+
+    def __init__(self, db_pool: Pool):
+        """
+        Initialize the repository with a connection pool.
+
+        Args:
+            db_pool (Pool): The asyncpg connection pool.
+        """
+        self.db_pool = db_pool
 
     async def get_user_by_username(self, username: str) -> Optional[User]:
         """
@@ -24,11 +33,10 @@ class DatabaseUserRepository(UserRepository):
         Returns:
             Optional[User]: Объект пользователя, если он найден, иначе None.
         """
-        conn = await get_db_connection()
-        user_record = await conn.fetchrow(
-            "SELECT username, hashed_password FROM users WHERE username = $1", username
-        )
-        await conn.close()
+        async with self.db_pool.acquire() as conn:  # Acquire connection from the pool
+            user_record = await conn.fetchrow(
+                "SELECT username, hashed_password FROM users WHERE username = $1", username
+            )
         if user_record:
             return User(
                 username=user_record["username"],
@@ -43,16 +51,12 @@ class DatabaseUserRepository(UserRepository):
         Args:
             user (User): Объект пользователя, содержащий имя и хэш пароля.
 
-        Side effects:
-            Выполняет запись в базу данных.
-
         Raises:
             Exception: В случае возникновения ошибки записи в базу данных.
         """
-        conn = await get_db_connection()
-        await conn.execute(
-            "INSERT INTO users (username, hashed_password) VALUES ($1, $2)",
-            user.username, user.hashed_password
-        )
-        await conn.close()
+        async with self.db_pool.acquire() as conn:  # Acquire connection from the pool
+            await conn.execute(
+                "INSERT INTO users (username, hashed_password) VALUES ($1, $2)",
+                user.username, user.hashed_password
+            )
         logger.info(f"User {user.username} created successfully")
