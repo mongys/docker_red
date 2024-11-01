@@ -1,7 +1,9 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from src.application.services import AuthService, ContainerService
-from src.application.token_service import TokenService
+from src.application.services.auth.auth_service import AuthService
+from src.application.services.container.container_action_service import ContainerActionService
+from src.application.services.container.container_info_service import ContainerInfoService
+from src.application.services.token.token_service import TokenService
 from src.infrastructure.repositories.user_repository import DatabaseUserRepository
 from src.infrastructure.repositories.container_repository import DockerContainerRepository
 from src.domain.exceptions import InvalidTokenException
@@ -11,7 +13,7 @@ from config.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
-def get_user_repo():
+def get_user_repo() -> DatabaseUserRepository:
     """
     Создает и возвращает экземпляр репозитория пользователей для взаимодействия с базой данных.
 
@@ -20,7 +22,7 @@ def get_user_repo():
     """
     return DatabaseUserRepository()
 
-def get_container_repo():
+def get_container_repo() -> DockerContainerRepository:
     """
     Создает и возвращает экземпляр репозитория контейнеров для взаимодействия с Docker-контейнерами.
 
@@ -29,7 +31,7 @@ def get_container_repo():
     """
     return DockerContainerRepository()
 
-def get_token_service():
+def get_token_service() -> TokenService:
     """
     Создает и возвращает экземпляр сервиса для работы с токенами.
 
@@ -38,7 +40,8 @@ def get_token_service():
     """
     return TokenService(secret_key=settings.secret_key, algorithm=settings.algorithm)
 
-def get_auth_service(user_repo=Depends(get_user_repo), token_service=Depends(get_token_service)):
+def get_auth_service(user_repo: DatabaseUserRepository = Depends(get_user_repo), 
+                     token_service: TokenService = Depends(get_token_service)) -> AuthService:
     """
     Создает и возвращает экземпляр сервиса аутентификации, используя указанный репозиторий пользователей и сервис токенов.
 
@@ -51,19 +54,32 @@ def get_auth_service(user_repo=Depends(get_user_repo), token_service=Depends(get
     """
     return AuthService(user_repo=user_repo, token_service=token_service)
 
-def get_container_service(container_repo=Depends(get_container_repo)):
+def get_container_action_service(container_repo: DockerContainerRepository = Depends(get_container_repo)) -> ContainerActionService:
     """
-    Создает и возвращает экземпляр сервиса управления контейнерами, используя указанный репозиторий контейнеров.
+    Создает и возвращает экземпляр сервиса управления действиями с контейнерами.
 
     Args:
         container_repo (DockerContainerRepository): Репозиторий для доступа к данным контейнеров.
 
     Returns:
-        ContainerService: Экземпляр сервиса управления контейнерами.
+        ContainerActionService: Экземпляр сервиса управления действиями с контейнерами.
     """
-    return ContainerService(container_repo)
+    return ContainerActionService(container_repo)
 
-async def get_current_user(token: str = Depends(oauth2_scheme), auth_service: AuthService = Depends(get_auth_service)):
+def get_container_info_service(container_repo: DockerContainerRepository = Depends(get_container_repo)) -> ContainerInfoService:
+    """
+    Создает и возвращает экземпляр сервиса для получения информации о контейнерах.
+
+    Args:
+        container_repo (DockerContainerRepository): Репозиторий для доступа к данным контейнеров.
+
+    Returns:
+        ContainerInfoService: Экземпляр сервиса получения информации о контейнерах.
+    """
+    return ContainerInfoService(container_repo)
+
+async def get_current_user(token: str = Depends(oauth2_scheme), 
+                            auth_service: AuthService = Depends(get_auth_service)) -> User:
     """
     Проверяет токен доступа и возвращает текущего пользователя, если аутентификация успешна.
 

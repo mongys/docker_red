@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import asyncpg
 from config.config import settings
-from src.interfaces.api import router as api_router
+from src.presentation.api import router as api_router
 
 app = FastAPI()
 
@@ -15,13 +15,10 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Закрытие пула соединений при завершении работы приложения
     await app.state.db_session.close()
 
-# Подключение роутера
 app.include_router(api_router, prefix="/api")
 
-# Проверка конфигурации
 @app.get("/config-info")
 async def config_info():
     return {

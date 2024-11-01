@@ -2,13 +2,9 @@ SECRET_KEY = "Starcraft"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 DB_HOST = "localhost"
-DB_PORT = "5432"
+DB_PORT = 5432
 DB_NAME = "redsoft_docker"
 DB_USER = "postgres"
 DB_PASSWORD = "Starmall1977"
 DOCKER_API_VERSION = "1.41"
-<<<<<<< HEAD
 DB_DRIVER="postgresql"
-=======
-DB_DRIVER = "postgresql"
->>>>>>> bf3062e6565fe15e3637ee1a9ed51c7d2701c858

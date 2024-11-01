@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
-from src.application.services import AuthService, ContainerService
-from src.interfaces.dependencies import get_auth_service, get_container_service, get_current_user
-from src.interfaces.schemas import UserCreateModel, TokenModel, UserResponseModel, ContainerInfoModel, ContainerActionRequest, CloneAndRunRequest
+from src.application.services.auth.auth_service import AuthService
+from src.application.services.container.container_action_service import ContainerActionService
+from src.application.services.container.container_info_service import ContainerInfoService
+from src.presentation.dependencies import get_auth_service, get_container_action_service, get_container_info_service, get_current_user
+from src.presentation.schemas import UserCreateModel, TokenModel, UserResponseModel, ContainerInfoModel, ContainerActionRequest, CloneAndRunRequest
 from src.domain.entities import User
 from src.domain.exceptions import AuthenticationException, UserAlreadyExistsException, InvalidTokenException, ContainerNotFoundException, DockerAPIException
 from typing import List
@@ -36,7 +38,7 @@ async def login_for_access_token(
         user = await auth_service.authenticate_user(form_data.username, form_data.password)
         access_token = auth_service.create_access_token(
             data={"sub": user.username},
-            expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
+            expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
         )
         return {"access_token": access_token, "token_type": "bearer"}
     except AuthenticationException as e:
@@ -54,13 +56,13 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 @router.get("/containers/", response_model=List[ContainerInfoModel])
 async def list_containers(
     current_user: User = Depends(get_current_user),
-    container_service: ContainerService = Depends(get_container_service)
+    container_info_service: ContainerInfoService = Depends(get_container_info_service)
 ):
     """
     Возвращает список всех Docker контейнеров.
     """
     try:
-        containers = await container_service.list_containers()
+        containers = await container_info_service.list_containers()
         return [ContainerInfoModel(**container.__dict__) for container in containers]
     except DockerAPIException as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -70,13 +72,13 @@ async def list_containers(
 async def start_container(
     request: ContainerActionRequest,
     current_user: User = Depends(get_current_user),
-    container_service: ContainerService = Depends(get_container_service)
+    container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
     """
     Запускает указанный Docker контейнер.
     """
     try:
-        await container_service.start_container(request.container_name)
+        await container_action_service.start_container(request.container_name)
         return {"message": f"Container {request.container_name} started"}
     except ContainerNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -88,13 +90,13 @@ async def start_container(
 async def stop_container(
     request: ContainerActionRequest,
     current_user: User = Depends(get_current_user),
-    container_service: ContainerService = Depends(get_container_service)
+    container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
     """
     Останавливает указанный Docker контейнер.
     """
     try:
-        await container_service.stop_container(request.container_name)
+        await container_action_service.stop_container(request.container_name)
         return {"message": f"Container {request.container_name} stopped"}
     except ContainerNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -106,13 +108,13 @@ async def stop_container(
 async def restart_container(
     request: ContainerActionRequest,
     current_user: User = Depends(get_current_user),
-    container_service: ContainerService = Depends(get_container_service)
+    container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
     """
     Перезапускает указанный Docker контейнер.
     """
     try:
-        await container_service.restart_container(request.container_name)
+        await container_action_service.restart_container(request.container_name)
         return {"message": f"Container {request.container_name} restarted"}
     except ContainerNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -124,13 +126,13 @@ async def restart_container(
 async def get_container_info(
     container_name: str,
     current_user: User = Depends(get_current_user),
-    container_service: ContainerService = Depends(get_container_service)
+    container_info_service: ContainerInfoService = Depends(get_container_info_service)
 ):
     """
     Возвращает информацию о конкретном Docker контейнере.
     """
     try:
-        container = await container_service.get_container_info(container_name)
+        container = await container_info_service.get_container_info(container_name)
         if container is None:
             raise HTTPException(status_code=404, detail="Container not found")
         return ContainerInfoModel(**container.__dict__)
@@ -143,13 +145,13 @@ async def delete_container(
     request: ContainerActionRequest,
     force: bool = False,
     current_user: User = Depends(get_current_user),
-    container_service: ContainerService = Depends(get_container_service)
+    container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
     """
     Удаляет указанный Docker контейнер.
     """
     try:
-        await container_service.delete_container(request.container_name, force)
+        await container_action_service.delete_container(request.container_name, force)
         return {"message": f"Container {request.container_name} deleted"}
     except ContainerNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -162,10 +164,10 @@ async def clone_and_run_container(
     request: CloneAndRunRequest,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
-    container_service: ContainerService = Depends(get_container_service)
+    container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
     """
     Клонирует репозиторий Git и запускает контейнер из Dockerfile.
     """
-    background_tasks.add_task(container_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
+    background_tasks.add_task(container_action_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
     return {"message": "Task added to background"}
