@@ -96,7 +96,7 @@ class DockerHelper:
             DockerAPIException: Если возникла ошибка при запуске контейнера.
         """
         try:
-            container = self.client.containers.run(image=image_tag, detach=True)
+            container = self.client.containers.run(image=image_tag, detach=True, tty=True, stdin_open=True)
             logger.info(f"Container {container.id} started successfully")
             return container
         except APIError as e:
