@@ -2,7 +2,6 @@ from fastapi import FastAPI
 import asyncpg
 from config.config import settings
 from src.presentation.api import router as api_router
-from src.infrastructure.repositories.container_repository import DockerContainerRepository
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -10,9 +9,6 @@ logger = logging.getLogger(__name__)
 
 # Создаем приложение FastAPI
 app = FastAPI()
-
-# Экземпляр DockerContainerRepository
-docker_repository = DockerContainerRepository()
 
 
 @app.on_event("startup")
@@ -27,8 +23,6 @@ async def startup_event():
         app.state.db_session = session_pool  
         app.state.settings = settings
 
-        # Запуск планировщика задач DockerContainerRepository
-        docker_repository._initialize_scheduler()
         logger.info("Приложение успешно запущено.")
     except Exception as e:
         logger.error(f"Ошибка при инициализации: {e}")
@@ -44,11 +38,6 @@ async def shutdown_event():
         await app.state.db_session.close()
         logger.info("Пул соединений с базой данных закрыт.")
     
-    # Остановка планировщика
-    try:
-        docker_repository.shutdown_scheduler()
-    except Exception as e:
-        logger.error(f"Ошибка при остановке планировщика: {e}")
 
 
 # Подключение маршрутов API

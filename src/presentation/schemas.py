@@ -18,7 +18,7 @@ class ContainerInfoModel(BaseModel):
     image: str
 
 class ContainerActionRequest(BaseModel):
-    container_name: str
+    container_id: str
 
 class CloneAndRunRequest(BaseModel):
     github_url: str

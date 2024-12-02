@@ -16,9 +16,6 @@ router = APIRouter()
 # Маршрут для регистрации пользователя
 @router.post("/auth/signup", response_model=dict)
 async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends(get_auth_service)):
-    """
-    Регистрация нового пользователя.
-    """
     try:
         await auth_service.create_user(user_data.username, user_data.password)
         return {"message": "User created successfully"}
@@ -31,9 +28,6 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
 ):
-    """
-    Получение токена доступа для аутентифицированного пользователя.
-    """
     try:
         user = await auth_service.authenticate_user(form_data.username, form_data.password)
         access_token = auth_service.create_access_token(
@@ -47,9 +41,6 @@ async def login_for_access_token(
 # Получение информации о текущем пользователе
 @router.get("/auth/users/me", response_model=UserResponseModel)
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    """
-    Возвращает информацию о текущем аутентифицированном пользователе.
-    """
     return UserResponseModel(username=current_user.username)
 
 # Получение списка контейнеров
@@ -58,9 +49,6 @@ async def list_containers(
     current_user: User = Depends(get_current_user),
     container_info_service: ContainerInfoService = Depends(get_container_info_service)
 ):
-    """
-    Возвращает список всех Docker контейнеров.
-    """
     try:
         containers = await container_info_service.list_containers()
         return [ContainerInfoModel(**container.__dict__) for container in containers]
@@ -74,12 +62,9 @@ async def start_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
-    """
-    Запускает указанный Docker контейнер.
-    """
     try:
-        await container_action_service.start_container(request.container_name)
-        return {"message": f"Container {request.container_name} started"}
+        await container_action_service.start_container(request.container_id)
+        return {"message": f"Container {request.container_id} started"}
     except ContainerNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
     except DockerAPIException as e:
@@ -92,12 +77,9 @@ async def stop_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
-    """
-    Останавливает указанный Docker контейнер.
-    """
     try:
-        await container_action_service.stop_container(request.container_name)
-        return {"message": f"Container {request.container_name} stopped"}
+        await container_action_service.stop_container(request.container_id)
+        return {"message": f"Container {request.container_id} stopped"}
     except ContainerNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
     except DockerAPIException as e:
@@ -110,34 +92,29 @@ async def restart_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
-    """
-    Перезапускает указанный Docker контейнер.
-    """
     try:
-        await container_action_service.restart_container(request.container_name)
-        return {"message": f"Container {request.container_name} restarted"}
+        await container_action_service.restart_container(request.container_id)
+        return {"message": f"Container {request.container_id} restarted"}
     except ContainerNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
     except DockerAPIException as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Получение информации о конкретном контейнере
-@router.get("/containers/{container_name}/", response_model=ContainerInfoModel)
+@router.get("/containers/{container_id}/", response_model=ContainerInfoModel)
 async def get_container_info(
-    container_name: str,
+    container_id: str,
     current_user: User = Depends(get_current_user),
     container_info_service: ContainerInfoService = Depends(get_container_info_service)
 ):
-    """
-    Возвращает информацию о конкретном Docker контейнере.
-    """
     try:
-        container = await container_info_service.get_container_info(container_name)
+        container = await container_info_service.get_container_info(container_id)
         if container is None:
             raise HTTPException(status_code=404, detail="Container not found")
         return ContainerInfoModel(**container.__dict__)
     except DockerAPIException as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # Удаление контейнера
 @router.delete("/containers/delete/", response_model=dict)
@@ -147,12 +124,9 @@ async def delete_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
-    """
-    Удаляет указанный Docker контейнер.
-    """
     try:
-        await container_action_service.delete_container(request.container_name, force)
-        return {"message": f"Container {request.container_name} deleted"}
+        await container_action_service.delete_container(request.container_id, force)
+        return {"message": f"Container {request.container_id} deleted"}
     except ContainerNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
     except DockerAPIException as e:
@@ -166,8 +140,5 @@ async def clone_and_run_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ):
-    """
-    Клонирует репозиторий Git и запускает контейнер из Dockerfile.
-    """
     background_tasks.add_task(container_action_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
     return {"message": "Task added to background"}
