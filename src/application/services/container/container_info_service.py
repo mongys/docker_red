@@ -10,3 +10,6 @@ class ContainerInfoService:
 
     async def list_containers(self):
         return await self.container_repo.list_containers()
+
+    async def get_container_stats(self, container_id: str) -> dict:
+        return await self.container_repo.get_container_stats(container_id)

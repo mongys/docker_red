@@ -38,7 +38,7 @@ class DockerContainerRepository(ContainerRepository):
         if not container:
             raise ContainerNotFoundException(f"Container {container_id} not found")
         container.start()
-
+    
     async def stop_container(self, container_id: str) -> None:
         container = self.docker_helper.get_container_by_id(container_id)
         if not container:
@@ -77,4 +77,73 @@ class DockerContainerRepository(ContainerRepository):
             self.docker_helper.run_container(image_tag)
         except Exception as e:
             logger.error(f"Error in clone and run: {str(e)}")
+            raise DockerAPIException(str(e))
+            
+    async def get_container_stats(self, container_id: str) -> Optional[dict]:
+        try:
+            container = self.docker_helper.get_container_by_id(container_id)
+            if not container:
+                raise ContainerNotFoundException(f"Container with ID {container_id} not found")
+
+            stats = container.stats(stream=False)
+
+            # Логирование для отладки
+            logger.debug(f"Stats for container {container_id}: {stats}")
+
+            # Извлечение данных
+            cpu_stats = stats.get("cpu_stats", {})
+            memory_stats = stats.get("memory_stats", {})
+            networks = stats.get("networks", {})
+
+            # CPU usage
+            cpu_usage = cpu_stats.get("cpu_usage", {}).get("total_usage", 0)
+            system_cpu_usage = cpu_stats.get("system_cpu_usage", 0)
+            cpu_percentage = (
+                (cpu_usage / system_cpu_usage) * 100 if system_cpu_usage > 0 else "No data available"
+            )
+
+
+            # Memory usage
+            memory_usage = memory_stats.get("usage", 0)
+            memory_limit = memory_stats.get("limit", 0)
+
+            def format_memory(bytes_value):
+                for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                    if bytes_value < 1024.0:
+                        return f"{bytes_value:.2f} {unit}"
+                    bytes_value /= 1024.0
+
+            memory_usage_formatted = format_memory(memory_usage)
+            memory_limit_formatted = format_memory(memory_limit)
+
+            # Network IO
+            def format_bytes(bytes_value):
+                for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                    if bytes_value < 1024.0:
+                        return f"{bytes_value:.2f} {unit}"
+                    bytes_value /= 1024.0
+
+            network_io = {
+                "received": {
+                    "bytes": format_bytes(sum(interface.get("rx_bytes", 0) for interface in networks.values())),
+                    "packets": sum(interface.get("rx_packets", 0) for interface in networks.values())
+                },
+                "transmitted": {
+                    "bytes": format_bytes(sum(interface.get("tx_bytes", 0) for interface in networks.values())),
+                    "packets": sum(interface.get("tx_packets", 0) for interface in networks.values())
+                }
+            }
+
+            return {
+                "cpu_usage_percent": round(cpu_percentage, 2),
+                "memory_usage": memory_usage_formatted,
+                "memory_limit": memory_limit_formatted,
+                "network_io": network_io
+            }
+
+        except KeyError as e:
+            logger.error(f"Missing key in stats for container {container_id}: {str(e)}")
+            raise DockerAPIException(f"Missing key in Docker stats: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error retrieving stats for container {container_id}: {str(e)}")
             raise DockerAPIException(str(e))

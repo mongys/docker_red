@@ -23,3 +23,11 @@ class ContainerActionRequest(BaseModel):
 class CloneAndRunRequest(BaseModel):
     github_url: str
     dockerfile_dir: str = ""
+
+class ContainerStatsModel(BaseModel):
+    cpu_usage: float
+    system_cpu_usage: float
+    memory_usage: int
+    memory_limit: int
+    network_io: dict
+

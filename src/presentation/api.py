@@ -142,3 +142,26 @@ async def clone_and_run_container(
 ):
     background_tasks.add_task(container_action_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
     return {"message": "Task added to background"}
+
+@router.get("/containers/{container_id}/stats", response_model=dict)
+async def get_container_stats(
+    container_id: str,
+    current_user: User = Depends(get_current_user),
+    container_info_service: ContainerInfoService = Depends(get_container_info_service)
+):
+    try:
+        stats = await container_info_service.get_container_stats(container_id)
+        return {
+            "cpu_usage": stats.get("cpu_usage", 0),
+            "system_cpu_usage": stats.get("system_cpu_usage", 0),
+            "memory_usage": stats.get("memory_usage", 0),
+            "memory_limit": stats.get("memory_limit", 0),
+            "network_io": stats.get("network_io", {}),
+        }
+    except ContainerNotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except DockerAPIException as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
