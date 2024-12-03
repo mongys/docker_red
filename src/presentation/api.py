@@ -4,9 +4,15 @@ from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
 from src.application.services.container.container_info_service import ContainerInfoService
 from src.presentation.dependencies import get_auth_service, get_container_action_service, get_container_info_service, get_current_user
-from src.presentation.schemas import UserCreateModel, TokenModel, UserResponseModel, ContainerInfoModel, ContainerActionRequest, CloneAndRunRequest
+from src.presentation.schemas import (
+    UserCreateModel, TokenModel, UserResponseModel, ContainerInfoModel,
+    ContainerActionRequest, CloneAndRunRequest
+)
 from src.domain.entities import User
-from src.domain.exceptions import AuthenticationException, UserAlreadyExistsException, InvalidTokenException, ContainerNotFoundException, DockerAPIException
+from src.domain.exceptions import (
+    AuthenticationException, UserAlreadyExistsException, InvalidTokenException,
+    ContainerNotFoundException, DockerAPIException
+)
 from typing import List
 from datetime import timedelta
 from config.config import settings
@@ -14,7 +20,17 @@ from config.config import settings
 router = APIRouter()
 
 # Маршрут для регистрации пользователя
-@router.post("/auth/signup", response_model=dict)
+@router.post(
+    "/auth/signup",
+    response_model=dict,
+    summary="Регистрация нового пользователя",
+    description="Создаёт нового пользователя в системе. Возвращает сообщение об успешной регистрации.",
+    tags=["Аутентификация"],
+    responses={
+        200: {"description": "Пользователь успешно создан."},
+        400: {"description": "Пользователь с таким именем уже существует."},
+    }
+)
 async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends(get_auth_service)):
     try:
         await auth_service.create_user(user_data.username, user_data.password)
@@ -23,7 +39,17 @@ async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends
         raise HTTPException(status_code=400, detail=str(e))
 
 # Маршрут для получения токена доступа
-@router.post("/auth/token", response_model=TokenModel)
+@router.post(
+    "/auth/token",
+    response_model=TokenModel,
+    summary="Получение токена доступа",
+    description="Аутентифицирует пользователя и возвращает токен доступа.",
+    tags=["Аутентификация"],
+    responses={
+        200: {"description": "Токен успешно выдан."},
+        401: {"description": "Ошибка аутентификации."},
+    }
+)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
@@ -39,12 +65,28 @@ async def login_for_access_token(
         raise HTTPException(status_code=401, detail=str(e))
 
 # Получение информации о текущем пользователе
-@router.get("/auth/users/me", response_model=UserResponseModel)
+@router.get(
+    "/auth/users/me",
+    response_model=UserResponseModel,
+    summary="Получить информацию о текущем пользователе",
+    description="Возвращает информацию о текущем аутентифицированном пользователе.",
+    tags=["Аутентификация"]
+)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return UserResponseModel(username=current_user.username)
 
 # Получение списка контейнеров
-@router.get("/containers/", response_model=List[ContainerInfoModel])
+@router.get(
+    "/containers/",
+    response_model=List[ContainerInfoModel],
+    summary="Получить список контейнеров",
+    description="Возвращает список всех контейнеров, доступных в системе.",
+    tags=["Контейнеры"],
+    responses={
+        200: {"description": "Список контейнеров успешно получен."},
+        502: {"description": "Ошибка взаимодействия с Docker API."},
+    }
+)
 async def list_containers(
     current_user: User = Depends(get_current_user),
     container_info_service: ContainerInfoService = Depends(get_container_info_service)
@@ -53,9 +95,20 @@ async def list_containers(
         containers = await container_info_service.list_containers()
         return [ContainerInfoModel(**container.__dict__) for container in containers]
     except DockerAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=502, detail="Error communicating with Docker API")
 
-@router.post("/containers/start/", response_model=dict)
+# Запуск контейнера
+@router.post(
+    "/containers/start/",
+    response_model=dict,
+    summary="Запустить контейнер",
+    description="Запускает контейнер по указанному ID.",
+    tags=["Контейнеры"],
+    responses={
+        200: {"description": "Контейнер успешно запущен."},
+        409: {"description": "Контейнер не принадлежит базе данных."},
+    }
+)
 async def start_container(
     request: ContainerActionRequest,
     current_user: User = Depends(get_current_user),
@@ -64,15 +117,21 @@ async def start_container(
     try:
         await container_action_service.start_container(request.container_id)
         return {"message": f"Container {request.container_id} started"}
-    except HTTPException as e:
-        raise e  # Пропускаем HTTPException, чтобы FastAPI обработал его корректно
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=409, detail="Container does not belong to db")
 
-    
-
-
-@router.post("/containers/stop/", response_model=dict)
+# Остановка контейнера
+@router.post(
+    "/containers/stop/",
+    response_model=dict,
+    summary="Остановить контейнер",
+    description="Останавливает контейнер по указанному ID.",
+    tags=["Контейнеры"],
+    responses={
+        200: {"description": "Контейнер успешно остановлен."},
+        409: {"description": "Контейнер не принадлежит базе данных."},
+    }
+)
 async def stop_container(
     request: ContainerActionRequest,
     current_user: User = Depends(get_current_user),
@@ -81,16 +140,21 @@ async def stop_container(
     try:
         await container_action_service.stop_container(request.container_id)
         return {"message": f"Container {request.container_id} stopped"}
-    except HTTPException as e:
-        raise e  # Пропускаем HTTPException для корректной обработки FastAPI
     except Exception as e:
-        raise HTTPException(
-            status_code=403, 
-            detail=f"Cannot stop container {request.container_id}. It does not belong to this application."
-        )
+        raise HTTPException(status_code=409, detail="Container does not belong to db")
 
-
-@router.post("/containers/restart/", response_model=dict)
+# Перезапуск контейнера
+@router.post(
+    "/containers/restart/",
+    response_model=dict,
+    summary="Перезапустить контейнер",
+    description="Перезапускает контейнер по указанному ID.",
+    tags=["Контейнеры"],
+    responses={
+        200: {"description": "Контейнер успешно перезапущен."},
+        409: {"description": "Контейнер не принадлежит базе данных."},
+    }
+)
 async def restart_container(
     request: ContainerActionRequest,
     current_user: User = Depends(get_current_user),
@@ -99,33 +163,21 @@ async def restart_container(
     try:
         await container_action_service.restart_container(request.container_id)
         return {"message": f"Container {request.container_id} restarted"}
-    except HTTPException as e:
-        raise e  # Пропускаем HTTPException для корректной обработки FastAPI
     except Exception as e:
-        raise HTTPException(
-            status_code=403, 
-            detail=f"Cannot restart container {request.container_id}. It does not belong to this application."
-        )
-
-
-# Получение информации о конкретном контейнере
-@router.get("/containers/{container_id}/", response_model=ContainerInfoModel)
-async def get_container_info(
-    container_id: str,
-    current_user: User = Depends(get_current_user),
-    container_info_service: ContainerInfoService = Depends(get_container_info_service)
-):
-    try:
-        container = await container_info_service.get_container_info(container_id)
-        if container is None:
-            raise HTTPException(status_code=404, detail="Container not found")
-        return ContainerInfoModel(**container.__dict__)
-    except DockerAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+        raise HTTPException(status_code=409, detail="Container does not belong to db")
 
 # Удаление контейнера
-@router.delete("/containers/delete/", response_model=dict)
+@router.delete(
+    "/containers/delete/",
+    response_model=dict,
+    summary="Удалить контейнер",
+    description="Удаляет контейнер по указанному ID.",
+    tags=["Контейнеры"],
+    responses={
+        200: {"description": "Контейнер успешно удалён."},
+        409: {"description": "Контейнер не принадлежит базе данных."},
+    }
+)
 async def delete_container(
     request: ContainerActionRequest,
     force: bool = False,
@@ -135,14 +187,21 @@ async def delete_container(
     try:
         await container_action_service.delete_container(request.container_id, force)
         return {"message": f"Container {request.container_id} deleted"}
-    except HTTPException as e:
-        raise e  # Пропускаем HTTPException для корректной обработки FastAPI
     except Exception as e:
-        raise HTTPException(status_code=403, detail=f"Cannot delete container {request.container_id}. It does not belong to this application.")
+        raise HTTPException(status_code=409, detail="Container does not belong to db")
 
-
-# Клонирование и запуск контейнера из репозитория
-@router.post("/containers/clone_and_run/", response_model=dict)
+# Клонирование и запуск контейнера
+@router.post(
+    "/containers/clone_and_run/",
+    response_model=dict,
+    summary="Клонировать и запустить контейнер",
+    description="Клонирует репозиторий, создаёт Docker-образ и запускает контейнер.",
+    tags=["Контейнеры"],
+    responses={
+        200: {"description": "Контейнер успешно клонирован и запущен."},
+        500: {"description": "Ошибка в процессе клонирования и запуска."},
+    }
+)
 async def clone_and_run_container(
     request: CloneAndRunRequest,
     background_tasks: BackgroundTasks,
@@ -152,7 +211,19 @@ async def clone_and_run_container(
     background_tasks.add_task(container_action_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
     return {"message": "Task added to background"}
 
-@router.get("/containers/{container_id}/stats", response_model=dict)
+# Получение статистики контейнера
+@router.get(
+    "/containers/{container_id}/stats",
+    response_model=dict,
+    summary="Получить статистику контейнера",
+    description="Возвращает статистику использования ресурсов для указанного контейнера.",
+    tags=["Контейнеры"],
+    responses={
+        200: {"description": "Статистика успешно получена."},
+        404: {"description": "Контейнер не найден."},
+        502: {"description": "Ошибка взаимодействия с Docker API."},
+    }
+)
 async def get_container_stats(
     container_id: str,
     current_user: User = Depends(get_current_user),
@@ -167,10 +238,7 @@ async def get_container_stats(
             "memory_limit": stats.get("memory_limit", 0),
             "network_io": stats.get("network_io", {}),
         }
-    except ContainerNotFoundException as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DockerAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="An unexpected error occurred")
-
+    except ContainerNotFoundException:
+        raise HTTPException(status_code=404, detail="Container not found")
+    except DockerAPIException:
+        raise HTTPException(status_code=404, detail="Container not running")
