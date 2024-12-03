@@ -55,7 +55,6 @@ async def list_containers(
     except DockerAPIException as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Запуск контейнера
 @router.post("/containers/start/", response_model=dict)
 async def start_container(
     request: ContainerActionRequest,
@@ -65,12 +64,14 @@ async def start_container(
     try:
         await container_action_service.start_container(request.container_id)
         return {"message": f"Container {request.container_id} started"}
-    except ContainerNotFoundException as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DockerAPIException as e:
+    except HTTPException as e:
+        raise e  # Пропускаем HTTPException, чтобы FastAPI обработал его корректно
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Остановка контейнера
+    
+
+
 @router.post("/containers/stop/", response_model=dict)
 async def stop_container(
     request: ContainerActionRequest,
@@ -80,12 +81,15 @@ async def stop_container(
     try:
         await container_action_service.stop_container(request.container_id)
         return {"message": f"Container {request.container_id} stopped"}
-    except ContainerNotFoundException as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DockerAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException as e:
+        raise e  # Пропускаем HTTPException для корректной обработки FastAPI
+    except Exception as e:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Cannot stop container {request.container_id}. It does not belong to this application."
+        )
 
-# Перезапуск контейнера
+
 @router.post("/containers/restart/", response_model=dict)
 async def restart_container(
     request: ContainerActionRequest,
@@ -95,10 +99,14 @@ async def restart_container(
     try:
         await container_action_service.restart_container(request.container_id)
         return {"message": f"Container {request.container_id} restarted"}
-    except ContainerNotFoundException as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DockerAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException as e:
+        raise e  # Пропускаем HTTPException для корректной обработки FastAPI
+    except Exception as e:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Cannot restart container {request.container_id}. It does not belong to this application."
+        )
+
 
 # Получение информации о конкретном контейнере
 @router.get("/containers/{container_id}/", response_model=ContainerInfoModel)
@@ -127,10 +135,11 @@ async def delete_container(
     try:
         await container_action_service.delete_container(request.container_id, force)
         return {"message": f"Container {request.container_id} deleted"}
-    except ContainerNotFoundException as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DockerAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException as e:
+        raise e  # Пропускаем HTTPException для корректной обработки FastAPI
+    except Exception as e:
+        raise HTTPException(status_code=403, detail=f"Cannot delete container {request.container_id}. It does not belong to this application.")
+
 
 # Клонирование и запуск контейнера из репозитория
 @router.post("/containers/clone_and_run/", response_model=dict)

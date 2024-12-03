@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Optional, List
 import asyncio
+import asyncpg
 from src.domain.repositories import ContainerRepository
 from src.domain.entities import Container
 from src.domain.exceptions import ContainerNotFoundException, DockerAPIException
@@ -13,9 +14,10 @@ logger = logging.getLogger(__name__)
 
 class DockerContainerRepository(ContainerRepository):
 
-    def __init__(self):
+    def __init__(self, db_pool):
         self.docker_helper = DockerHelper()
         self.git_helper = GitHelper()
+        self.db_pool = db_pool
 
     async def list_containers(self) -> List[Container]:
         try:
@@ -34,22 +36,32 @@ class DockerContainerRepository(ContainerRepository):
             raise DockerAPIException(str(e))
 
     async def start_container(self, container_id: str) -> None:
+        if not await self.is_container_in_db(container_id):
+            raise Exception(f"Container {container_id} not found in database")
         container = self.docker_helper.get_container_by_id(container_id)
         if not container:
             raise ContainerNotFoundException(f"Container {container_id} not found")
         container.start()
+
     
     async def stop_container(self, container_id: str) -> None:
+        if not await self.is_container_in_db(container_id):
+            raise Exception(f"Container {container_id} not found in database")
         container = self.docker_helper.get_container_by_id(container_id)
         if not container:
             raise ContainerNotFoundException(f"Container {container_id} not found")
         container.stop()
 
+
     async def restart_container(self, container_id: str) -> None:
+        if not await self.is_container_in_db(container_id):
+            raise Exception(f"Container {container_id} not found in database")
         container = self.docker_helper.get_container_by_id(container_id)
         if not container:
             raise ContainerNotFoundException(f"Container {container_id} not found")
         container.restart()
+
+
 
     async def get_container_info(self, container_id: str) -> Optional[Container]:
         container = self.docker_helper.get_container_by_id(container_id)
@@ -63,10 +75,14 @@ class DockerContainerRepository(ContainerRepository):
         )
 
     async def delete_container(self, container_id: str, force: bool = False) -> None:
+        if not await self.is_container_in_db(container_id):
+            raise Exception(f"Container {container_id} not found in database")
         container = self.docker_helper.get_container_by_id(container_id)
         if not container:
-            raise ContainerNotFoundException(f"Container {container_id} не найден")
+            raise ContainerNotFoundException(f"Container {container_id} not found")
         container.remove(force=force)
+        await self.delete_container_from_db(container_id)
+
 
     async def clone_and_run_container(self, github_url: str, dockerfile_dir: str) -> None:
         repo_dir = f"./repos/{os.path.basename(github_url.rstrip('/').replace('.git', ''))}"
@@ -74,10 +90,21 @@ class DockerContainerRepository(ContainerRepository):
             self.git_helper.ensure_directory_exists('./repos')
             self.git_helper.clone_or_pull_repo(github_url, repo_dir)
             image_tag = self.docker_helper.build_container(repo_dir, dockerfile_dir)
-            self.docker_helper.run_container(image_tag)
+            container = self.docker_helper.run_container(image_tag)
+
+            # Save container data to the database
+            new_container = Container(
+                id=container.id,
+                name=container.name,
+                status=container.status,
+                image=image_tag
+            )
+            await self.save_container_to_db(new_container)
+
         except Exception as e:
             logger.error(f"Error in clone and run: {str(e)}")
             raise DockerAPIException(str(e))
+
             
     async def get_container_stats(self, container_id: str) -> Optional[dict]:
         try:
@@ -147,3 +174,26 @@ class DockerContainerRepository(ContainerRepository):
         except Exception as e:
             logger.error(f"Error retrieving stats for container {container_id}: {str(e)}")
             raise DockerAPIException(str(e))
+
+    async def save_container_to_db(self, container: Container):
+        async with self.db_pool.acquire() as connection:
+            await connection.execute(
+                """
+                INSERT INTO containers (id, name, image)
+                VALUES ($1, $2, $3)
+                """,
+                container.id, container.name, container.image
+            )
+
+    async def is_container_in_db(self, container_id: str) -> bool:
+        async with self.db_pool.acquire() as connection:
+            row = await connection.fetchrow(
+                "SELECT id FROM containers WHERE id = $1", container_id
+            )
+            return row is not None
+
+    async def delete_container_from_db(self, container_id: str):
+        async with self.db_pool.acquire() as connection:
+            await connection.execute(
+                "DELETE FROM containers WHERE id = $1", container_id
+            )

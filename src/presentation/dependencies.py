@@ -23,8 +23,12 @@ def get_user_repo(request: Request) -> DatabaseUserRepository:
         raise HTTPException(status_code=500, detail="Database connection pool is not initialized")
     return DatabaseUserRepository(db_pool=db_pool)
 
-def get_container_repo() -> DockerContainerRepository:
-    return DockerContainerRepository()
+def get_container_repo(request: Request) -> DockerContainerRepository:
+    db_pool = getattr(request.app.state, "db_session", None)
+    if db_pool is None:
+        raise HTTPException(status_code=500, detail="Database connection pool is not initialized")
+    return DockerContainerRepository(db_pool=db_pool)
+
 
 def get_token_service() -> TokenService:
     return TokenService(secret_key=settings.secret_key, algorithm=settings.algorithm)
