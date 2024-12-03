@@ -22,15 +22,22 @@ class DockerContainerRepository(ContainerRepository):
     async def list_containers(self) -> List[Container]:
         try:
             containers = self.docker_helper.list_containers()
-            return [
-                Container(
+            container_list = []
+            for c in containers:
+                is_in_db = await self.is_container_in_db(c.id)
+                name = getattr(c, 'name', "No name")
+                status = getattr(c, 'status', "unknown")
+                image = c.image.tags[0] if c.image.tags else "No tag available"
+                container = Container(
                     id=c.id,
-                    name=c.name,
-                    status=c.status,
-                    image=c.image.tags[0] if c.image.tags else "No tag available"
+                    name=name,
+                    status=status,
+                    image=image,
+                    is_in_db=is_in_db  # Добавляем информацию о наличии в БД
                 )
-                for c in containers
-            ]
+                logger.debug(f"Container created: {container}")
+                container_list.append(container)
+            return container_list
         except DockerAPIException as e:
             logger.error(f"Docker API error: {str(e)}")
             raise DockerAPIException(str(e))
@@ -67,12 +74,16 @@ class DockerContainerRepository(ContainerRepository):
         container = self.docker_helper.get_container_by_id(container_id)
         if not container:
             raise ContainerNotFoundException(f"Container {container_id} не найден")
-        return Container(
+        is_in_db = await self.is_container_in_db(container_id)
+        container_info = Container(
             id=container.id,
             name=container.name,
             status=container.status,
-            image=container.image.tags[0] if container.image.tags else "No tag available"
+            image=container.image.tags[0] if container.image.tags else "No tag available",
+            is_in_db=is_in_db
         )
+        logger.debug(f"Container info retrieved: {container_info}")
+        return container_info
 
     async def delete_container(self, container_id: str, force: bool = False) -> None:
         if not await self.is_container_in_db(container_id):
@@ -82,7 +93,6 @@ class DockerContainerRepository(ContainerRepository):
             raise ContainerNotFoundException(f"Container {container_id} not found")
         container.remove(force=force)
         await self.delete_container_from_db(container_id)
-
 
     async def clone_and_run_container(self, github_url: str, dockerfile_dir: str) -> None:
         repo_dir = f"./repos/{os.path.basename(github_url.rstrip('/').replace('.git', ''))}"
@@ -97,10 +107,11 @@ class DockerContainerRepository(ContainerRepository):
                 id=container.id,
                 name=container.name,
                 status=container.status,
-                image=image_tag
+                image=image_tag,
+                is_in_db=True  # Новый контейнер обязательно добавляется в БД
             )
             await self.save_container_to_db(new_container)
-
+            logger.info(f"Container {container.id} saved to DB")
         except Exception as e:
             logger.error(f"Error in clone and run: {str(e)}")
             raise DockerAPIException(str(e))

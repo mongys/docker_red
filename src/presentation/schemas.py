@@ -16,6 +16,8 @@ class ContainerInfoModel(BaseModel):
     name: str
     status: str
     image: str
+    is_in_db: bool = False  # Устанавливаем значение по умолчанию
+
 
 class ContainerActionRequest(BaseModel):
     container_id: str
