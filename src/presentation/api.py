@@ -3,14 +3,17 @@ from fastapi.security import OAuth2PasswordRequestForm
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
 from src.application.services.container.container_info_service import ContainerInfoService
-from src.presentation.dependencies import get_auth_service, get_container_action_service, get_container_info_service, get_current_user
+from src.presentation.dependencies import (
+    get_auth_service, get_container_action_service, 
+    get_container_info_service, get_current_user
+)
 from src.presentation.schemas import (
     UserCreateModel, TokenModel, UserResponseModel, ContainerInfoModel,
     ContainerActionRequest, CloneAndRunRequest
 )
 from src.domain.entities import User
 from src.domain.exceptions import (
-    AuthenticationException, UserAlreadyExistsException, InvalidTokenException,
+    AuthenticationException, UserAlreadyExistsException,
     ContainerNotFoundException, DockerAPIException
 )
 from typing import List
@@ -19,16 +22,15 @@ from config.config import settings
 
 router = APIRouter()
 
-# Маршрут для регистрации пользователя
 @router.post(
     "/auth/signup",
     response_model=dict,
-    summary="Регистрация нового пользователя",
-    description="Создаёт нового пользователя в системе. Возвращает сообщение об успешной регистрации.",
-    tags=["Аутентификация"],
+    summary="Register a new user",
+    description="Creates a new user in the system. Returns a message about successful registration.",
+    tags=["Authentication"],
     responses={
-        200: {"description": "Пользователь успешно создан."},
-        400: {"description": "Пользователь с таким именем уже существует."},
+        200: {"description": "User successfully created."},
+        400: {"description": "A user with this username already exists."},
     }
 )
 async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends(get_auth_service)):
@@ -38,16 +40,15 @@ async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends
     except UserAlreadyExistsException as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Маршрут для получения токена доступа
 @router.post(
     "/auth/token",
     response_model=TokenModel,
-    summary="Получение токена доступа",
-    description="Аутентифицирует пользователя и возвращает токен доступа.",
-    tags=["Аутентификация"],
+    summary="Get an access token",
+    description="Authenticates a user and returns an access token.",
+    tags=["Authentication"],
     responses={
-        200: {"description": "Токен успешно выдан."},
-        401: {"description": "Ошибка аутентификации."},
+        200: {"description": "Token successfully issued."},
+        401: {"description": "Authentication error."},
     }
 )
 async def login_for_access_token(
@@ -64,27 +65,25 @@ async def login_for_access_token(
     except AuthenticationException as e:
         raise HTTPException(status_code=401, detail=str(e))
 
-# Получение информации о текущем пользователе
 @router.get(
     "/auth/users/me",
     response_model=UserResponseModel,
-    summary="Получить информацию о текущем пользователе",
-    description="Возвращает информацию о текущем аутентифицированном пользователе.",
-    tags=["Аутентификация"]
+    summary="Get current user information",
+    description="Returns information about the currently authenticated user.",
+    tags=["Authentication"]
 )
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return UserResponseModel(username=current_user.username)
 
-# Получение списка контейнеров
 @router.get(
     "/containers/",
     response_model=List[ContainerInfoModel],
-    summary="Получить список контейнеров",
-    description="Возвращает список всех контейнеров, доступных в системе.",
-    tags=["Контейнеры"],
+    summary="Get a list of containers",
+    description="Returns a list of all containers available on the system.",
+    tags=["Containers"],
     responses={
-        200: {"description": "Список контейнеров успешно получен."},
-        502: {"description": "Ошибка взаимодействия с Docker API."},
+        200: {"description": "Container list successfully received."},
+        502: {"description": "Error of interaction with Docker API."},
     }
 )
 async def list_containers(
@@ -97,16 +96,15 @@ async def list_containers(
     except DockerAPIException as e:
         raise HTTPException(status_code=502, detail="Error communicating with Docker API")
 
-# Запуск контейнера
 @router.post(
     "/containers/start/",
     response_model=dict,
-    summary="Запустить контейнер",
-    description="Запускает контейнер по указанному ID.",
-    tags=["Контейнеры"],
+    summary="Start a container",
+    description="Starts a container by the specified ID.",
+    tags=["Containers"],
     responses={
-        200: {"description": "Контейнер успешно запущен."},
-        409: {"description": "Контейнер не принадлежит базе данных."},
+        200: {"description": "Container successfully started."},
+        409: {"description": "Container is not found in the system."},
     }
 )
 async def start_container(
@@ -118,18 +116,17 @@ async def start_container(
         await container_action_service.start_container(request.container_id)
         return {"message": f"Container {request.container_id} started"}
     except Exception as e:
-        raise HTTPException(status_code=409, detail="Container does not belong to db")
+        raise HTTPException(status_code=409, detail="Container is not found in the system")
 
-# Остановка контейнера
 @router.post(
     "/containers/stop/",
     response_model=dict,
-    summary="Остановить контейнер",
-    description="Останавливает контейнер по указанному ID.",
-    tags=["Контейнеры"],
+    summary="Stop a container",
+    description="Stops a container by the specified ID.",
+    tags=["Containers"],
     responses={
-        200: {"description": "Контейнер успешно остановлен."},
-        409: {"description": "Контейнер не принадлежит базе данных."},
+        200: {"description": "Container successfully stopped."},
+        409: {"description": "Container is not found in the system."},
     }
 )
 async def stop_container(
@@ -141,18 +138,17 @@ async def stop_container(
         await container_action_service.stop_container(request.container_id)
         return {"message": f"Container {request.container_id} stopped"}
     except Exception as e:
-        raise HTTPException(status_code=409, detail="Container does not belong to db")
+        raise HTTPException(status_code=409, detail="Container is not found in the system")
 
-# Перезапуск контейнера
 @router.post(
     "/containers/restart/",
     response_model=dict,
-    summary="Перезапустить контейнер",
-    description="Перезапускает контейнер по указанному ID.",
-    tags=["Контейнеры"],
+    summary="Restart a container",
+    description="Restarts a container by the specified ID.",
+    tags=["Containers"],
     responses={
-        200: {"description": "Контейнер успешно перезапущен."},
-        409: {"description": "Контейнер не принадлежит базе данных."},
+        200: {"description": "Container successfully restarted."},
+        409: {"description": "Container is not found in the system."},
     }
 )
 async def restart_container(
@@ -164,18 +160,17 @@ async def restart_container(
         await container_action_service.restart_container(request.container_id)
         return {"message": f"Container {request.container_id} restarted"}
     except Exception as e:
-        raise HTTPException(status_code=409, detail="Container does not belong to db")
+        raise HTTPException(status_code=409, detail="Container is not found in the system")
 
-# Удаление контейнера
 @router.delete(
     "/containers/delete/",
     response_model=dict,
-    summary="Удалить контейнер",
-    description="Удаляет контейнер по указанному ID.",
-    tags=["Контейнеры"],
+    summary="Delete a container",
+    description="Deletes a container by the specified ID.",
+    tags=["Containers"],
     responses={
-        200: {"description": "Контейнер успешно удалён."},
-        409: {"description": "Контейнер не принадлежит базе данных."},
+        200: {"description": "Container successfully deleted."},
+        409: {"description": "Container is not found in the system."},
     }
 )
 async def delete_container(
@@ -188,18 +183,17 @@ async def delete_container(
         await container_action_service.delete_container(request.container_id, force)
         return {"message": f"Container {request.container_id} deleted"}
     except Exception as e:
-        raise HTTPException(status_code=409, detail="Container does not belong to db")
+        raise HTTPException(status_code=409, detail="Container is not found in the system")
 
-# Клонирование и запуск контейнера
 @router.post(
     "/containers/clone_and_run/",
     response_model=dict,
-    summary="Клонировать и запустить контейнер",
-    description="Клонирует репозиторий, создаёт Docker-образ и запускает контейнер.",
-    tags=["Контейнеры"],
+    summary="Clone and run a container",
+    description="Clones a repository, builds a Docker image, and runs a container.",
+    tags=["Containers"],
     responses={
-        200: {"description": "Контейнер успешно клонирован и запущен."},
-        500: {"description": "Ошибка в процессе клонирования и запуска."},
+        200: {"description": "Container successfully cloned and started."},
+        500: {"description": "Error during cloning and starting process."},
     }
 )
 async def clone_and_run_container(
@@ -211,17 +205,16 @@ async def clone_and_run_container(
     background_tasks.add_task(container_action_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
     return {"message": "Task added to background"}
 
-# Получение статистики контейнера
 @router.get(
     "/containers/{container_id}/stats",
     response_model=dict,
-    summary="Получить статистику контейнера",
-    description="Возвращает статистику использования ресурсов для указанного контейнера.",
-    tags=["Контейнеры"],
+    summary="Get container statistics",
+    description="Returns resource usage statistics for the specified container.",
+    tags=["Containers"],
     responses={
-        200: {"description": "Статистика успешно получена."},
-        404: {"description": "Контейнер не найден."},
-        502: {"description": "Ошибка взаимодействия с Docker API."},
+        200: {"description": "Statistics successfully retrieved."},
+        404: {"description": "Container not found."},
+        502: {"description": "Error interacting with Docker API."},
     }
 )
 async def get_container_stats(

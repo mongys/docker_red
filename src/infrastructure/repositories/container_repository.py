@@ -1,8 +1,6 @@
 import logging
 import os
 from typing import Optional, List
-import asyncio
-import asyncpg
 from src.domain.repositories import ContainerRepository
 from src.domain.entities import Container
 from src.domain.exceptions import ContainerNotFoundException, DockerAPIException
@@ -33,7 +31,7 @@ class DockerContainerRepository(ContainerRepository):
                     name=name,
                     status=status,
                     image=image,
-                    is_in_db=is_in_db  # Добавляем информацию о наличии в БД
+                    is_in_db=is_in_db 
                 )
                 logger.debug(f"Container created: {container}")
                 container_list.append(container)
@@ -102,13 +100,12 @@ class DockerContainerRepository(ContainerRepository):
             image_tag = self.docker_helper.build_container(repo_dir, dockerfile_dir)
             container = self.docker_helper.run_container(image_tag)
 
-            # Save container data to the database
             new_container = Container(
                 id=container.id,
                 name=container.name,
                 status=container.status,
                 image=image_tag,
-                is_in_db=True  # Новый контейнер обязательно добавляется в БД
+                is_in_db=True 
             )
             await self.save_container_to_db(new_container)
             logger.info(f"Container {container.id} saved to DB")
@@ -125,15 +122,12 @@ class DockerContainerRepository(ContainerRepository):
 
             stats = container.stats(stream=False)
 
-            # Логирование для отладки
-            logger.debug(f"Stats for container {container_id}: {stats}")
-
-            # Извлечение данных
+            
+        
             cpu_stats = stats.get("cpu_stats", {})
             memory_stats = stats.get("memory_stats", {})
             networks = stats.get("networks", {})
 
-            # CPU usage
             cpu_usage = cpu_stats.get("cpu_usage", {}).get("total_usage", 0)
             system_cpu_usage = cpu_stats.get("system_cpu_usage", 0)
             cpu_percentage = (
@@ -141,7 +135,6 @@ class DockerContainerRepository(ContainerRepository):
             )
 
 
-            # Memory usage
             memory_usage = memory_stats.get("usage", 0)
             memory_limit = memory_stats.get("limit", 0)
 
@@ -154,7 +147,6 @@ class DockerContainerRepository(ContainerRepository):
             memory_usage_formatted = format_memory(memory_usage)
             memory_limit_formatted = format_memory(memory_limit)
 
-            # Network IO
             def format_bytes(bytes_value):
                 for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
                     if bytes_value < 1024.0:

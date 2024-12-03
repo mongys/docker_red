@@ -6,7 +6,6 @@ from src.application.services.container.container_info_service import ContainerI
 from src.application.services.token.token_service import TokenService
 from src.infrastructure.repositories.user_repository import DatabaseUserRepository
 from src.infrastructure.repositories.container_repository import DockerContainerRepository
-from src.domain.exceptions import InvalidTokenException
 from src.domain.entities import User
 from jose import JWTError
 from asyncpg import Connection

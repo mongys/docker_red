@@ -45,9 +45,6 @@ class AppSettings:
 
     @property
     def database_dsn(self):
-        """
-        Генерация строки DSN для подключения к базе данных
-        """
         return "{}://{}:{}@{}:{}/{}".format(
             self.db_driver,
             self.db_user,
