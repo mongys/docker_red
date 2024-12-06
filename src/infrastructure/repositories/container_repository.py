@@ -73,10 +73,17 @@ class DockerContainerRepository(ContainerRepository):
 
 
     async def get_container_info(self, container_id: str) -> Optional[Container]:
+        # Check if the container exists in the database
+        is_in_db = await self.is_container_in_db(container_id)
+        if not is_in_db:
+            raise ContainerNotFoundException(f"Container {container_id} not found in the database")
+        
+        # Fetch the container from Docker API
         container = self.docker_helper.get_container_by_id(container_id)
         if not container:
-            raise ContainerNotFoundException(f"Container {container_id} не найден")
-        is_in_db = await self.is_container_in_db(container_id)
+            raise ContainerNotFoundException(f"Container {container_id} not found in Docker")
+
+        # Construct the container info object
         container_info = Container(
             id=container.id,
             name=container.name,
@@ -85,6 +92,8 @@ class DockerContainerRepository(ContainerRepository):
         )
         logger.debug(f"Container info retrieved: {container_info}")
         return container_info
+
+
 
     async def delete_container(self, container_id: str, force: bool = False) -> None:
         if not await self.is_container_in_db(container_id):
