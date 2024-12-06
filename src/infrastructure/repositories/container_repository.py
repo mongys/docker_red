@@ -23,15 +23,19 @@ class DockerContainerRepository(ContainerRepository):
             container_list = []
             for c in containers:
                 is_in_db = await self.is_container_in_db(c.id)
+                if not is_in_db:
+                    continue  # Пропускаем контейнер, если его нет в БД
+
                 name = getattr(c, 'name', "No name")
                 status = getattr(c, 'status', "unknown")
                 image = c.image.tags[0] if c.image.tags else "No tag available"
+                
                 container = Container(
                     id=c.id,
                     name=name,
                     status=status,
                     image=image,
-                    is_in_db=is_in_db 
+                    is_in_db=is_in_db
                 )
                 logger.debug(f"Container created: {container}")
                 container_list.append(container)
@@ -39,6 +43,7 @@ class DockerContainerRepository(ContainerRepository):
         except DockerAPIException as e:
             logger.error(f"Docker API error: {str(e)}")
             raise DockerAPIException(str(e))
+
 
     async def start_container(self, container_id: str) -> None:
         if not await self.is_container_in_db(container_id):

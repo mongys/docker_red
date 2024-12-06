@@ -16,7 +16,7 @@ from src.domain.exceptions import (
     AuthenticationException, UserAlreadyExistsException,
     ContainerNotFoundException, DockerAPIException
 )
-from typing import List
+from typing import List, Dict, Any
 from datetime import timedelta
 from config.config import settings
 
@@ -33,7 +33,7 @@ router = APIRouter()
         400: {"description": "A user with this username already exists."},
     }
 )
-async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends(get_auth_service)):
+async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends(get_auth_service)) -> Dict[str, str]:
     try:
         await auth_service.create_user(user_data.username, user_data.password)
         return {"message": "User created successfully"}
@@ -54,7 +54,7 @@ async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
-):
+) -> TokenModel:
     try:
         user = await auth_service.authenticate_user(form_data.username, form_data.password)
         access_token = auth_service.create_access_token(
@@ -72,7 +72,7 @@ async def login_for_access_token(
     description="Returns information about the currently authenticated user.",
     tags=["Authentication"]
 )
-async def read_users_me(current_user: User = Depends(get_current_user)):
+async def read_users_me(current_user: User = Depends(get_current_user)) -> UserResponseModel:
     return UserResponseModel(username=current_user.username)
 
 @router.get(
@@ -89,7 +89,7 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 async def list_containers(
     current_user: User = Depends(get_current_user),
     container_info_service: ContainerInfoService = Depends(get_container_info_service)
-):
+) -> List[ContainerInfoModel]:
     try:
         containers = await container_info_service.list_containers()
         return [ContainerInfoModel(**container.__dict__) for container in containers]
@@ -111,11 +111,11 @@ async def start_container(
     request: ContainerActionRequest,
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
-):
+) -> Dict[str, str]:
     try:
         await container_action_service.start_container(request.container_id)
         return {"message": f"Container {request.container_id} started"}
-    except Exception as e:
+    except ContainerNotFoundException:
         raise HTTPException(status_code=409, detail="Container is not found in the system")
 
 @router.post(
@@ -133,11 +133,11 @@ async def stop_container(
     request: ContainerActionRequest,
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
-):
+) -> Dict[str, str]:
     try:
         await container_action_service.stop_container(request.container_id)
         return {"message": f"Container {request.container_id} stopped"}
-    except Exception as e:
+    except ContainerNotFoundException:
         raise HTTPException(status_code=409, detail="Container is not found in the system")
 
 @router.post(
@@ -155,11 +155,11 @@ async def restart_container(
     request: ContainerActionRequest,
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
-):
+) -> Dict[str, str]:
     try:
         await container_action_service.restart_container(request.container_id)
         return {"message": f"Container {request.container_id} restarted"}
-    except Exception as e:
+    except ContainerNotFoundException:
         raise HTTPException(status_code=409, detail="Container is not found in the system")
 
 @router.delete(
@@ -178,11 +178,11 @@ async def delete_container(
     force: bool = False,
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
-):
+) -> Dict[str, str]:
     try:
         await container_action_service.delete_container(request.container_id, force)
         return {"message": f"Container {request.container_id} deleted"}
-    except Exception as e:
+    except ContainerNotFoundException:
         raise HTTPException(status_code=409, detail="Container is not found in the system")
 
 @router.post(
@@ -201,7 +201,7 @@ async def clone_and_run_container(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
-):
+) -> Dict[str, str]:
     background_tasks.add_task(container_action_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
     return {"message": "Task added to background"}
 
@@ -221,7 +221,7 @@ async def get_container_stats(
     container_id: str,
     current_user: User = Depends(get_current_user),
     container_info_service: ContainerInfoService = Depends(get_container_info_service)
-):
+) -> Dict[str, Any]:
     try:
         stats = await container_info_service.get_container_stats(container_id)
         return {
@@ -234,4 +234,4 @@ async def get_container_stats(
     except ContainerNotFoundException:
         raise HTTPException(status_code=404, detail="Container not found")
     except DockerAPIException:
-        raise HTTPException(status_code=404, detail="Container not running")
+        raise HTTPException(status_code=502, detail="Error interacting with Docker API")
