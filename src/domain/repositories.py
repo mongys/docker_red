@@ -42,3 +42,8 @@ class ContainerRepository(ABC):
     @abstractmethod
     async def clone_and_run_container(self, github_url: str, dockerfile_dir: str) -> None:
         pass
+    
+    @abstractmethod
+    async def get_container_info(self, container_id: str) -> Optional[Container]:
+        """Fetch detailed information about a specific container."""
+        pass

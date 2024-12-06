@@ -235,3 +235,27 @@ async def get_container_stats(
         raise HTTPException(status_code=404, detail="Container not found")
     except DockerAPIException:
         raise HTTPException(status_code=404, detail="Container not found")
+
+
+@router.get(
+    "/containers/{container_id}",
+    response_model=ContainerInfoModel,
+    summary="Get container information",
+    description="Retrieve detailed information about a specific Docker container.",
+    tags=["Containers"],
+    responses={
+        200: {"description": "Container information retrieved successfully."},
+        404: {"description": "Container not found."},
+    }
+)
+async def get_container_info(
+    container_id: str,
+    current_user: User = Depends(get_current_user),
+    container_info_service: ContainerInfoService = Depends(get_container_info_service)
+) -> ContainerInfoModel:
+    try:
+        container = await container_info_service.get_container_info(container_id)
+        return ContainerInfoModel(**container.__dict__)
+    except ContainerNotFoundException:
+        raise HTTPException(status_code=404, detail="Container not found")
+
