@@ -11,4 +11,3 @@ class Container:
     name: str
     status: str
     image: str
-    is_in_db: bool = False 

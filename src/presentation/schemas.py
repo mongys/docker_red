@@ -39,7 +39,6 @@ class ContainerInfoModel(BaseModel):
     name: str = Field(..., title="Container Name", description="The name of the Docker container.")
     status: str = Field(..., title="Container Status", description="The current status of the Docker container (e.g., running, exited).")
     image: str = Field(..., title="Image", description="The Docker image used by the container.")
-    is_in_db: bool = Field(False, title="Is in Database", description="Indicates if the container is tracked in the application's database.")
 
     class Config:
         schema_extra = {
@@ -47,8 +46,7 @@ class ContainerInfoModel(BaseModel):
                 "id": "e4c88bf1725a98abc...",
                 "name": "web_app",
                 "status": "running",
-                "image": "nginx:latest",
-                "is_in_db": True
+                "image": "nginx:latest"
             }
         }
 

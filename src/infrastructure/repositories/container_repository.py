@@ -34,8 +34,7 @@ class DockerContainerRepository(ContainerRepository):
                     id=c.id,
                     name=name,
                     status=status,
-                    image=image,
-                    is_in_db=is_in_db
+                    image=image
                 )
                 logger.debug(f"Container created: {container}")
                 container_list.append(container)
@@ -82,8 +81,7 @@ class DockerContainerRepository(ContainerRepository):
             id=container.id,
             name=container.name,
             status=container.status,
-            image=container.image.tags[0] if container.image.tags else "No tag available",
-            is_in_db=is_in_db
+            image=container.image.tags[0] if container.image.tags else "No tag available"
         )
         logger.debug(f"Container info retrieved: {container_info}")
         return container_info
@@ -109,8 +107,7 @@ class DockerContainerRepository(ContainerRepository):
                 id=container.id,
                 name=container.name,
                 status=container.status,
-                image=image_tag,
-                is_in_db=True 
+                image=image_tag
             )
             await self.save_container_to_db(new_container)
             logger.info(f"Container {container.id} saved to DB")

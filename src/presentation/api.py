@@ -203,7 +203,7 @@ async def clone_and_run_container(
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ) -> Dict[str, str]:
     background_tasks.add_task(container_action_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
-    return {"message": "Task added to background"}
+    return {"message": "Container successfully cloned and started"}
 
 @router.get(
     "/containers/{container_id}/stats",
@@ -234,4 +234,4 @@ async def get_container_stats(
     except ContainerNotFoundException:
         raise HTTPException(status_code=404, detail="Container not found")
     except DockerAPIException:
-        raise HTTPException(status_code=502, detail="Error interacting with Docker API")
+        raise HTTPException(status_code=404, detail="Container not found")
