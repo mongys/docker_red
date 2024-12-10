@@ -1,3 +1,14 @@
+"""
+This module defines the API endpoints for user authentication and Docker container management.
+
+Endpoints include:
+- User registration and authentication
+- Retrieving current user information
+- Listing, starting, stopping, restarting, deleting Docker containers
+- Cloning repositories and running containers
+- Retrieving container statistics and detailed information
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from src.application.services.auth.auth_service import AuthService
@@ -34,6 +45,19 @@ router = APIRouter()
     }
 )
 async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends(get_auth_service)) -> Dict[str, str]:
+    """
+    Registers a new user with the provided username and password.
+
+    Args:
+        user_data (UserCreateModel): The data containing the username and password for the new user.
+        auth_service (AuthService): The authentication service dependency.
+
+    Returns:
+        Dict[str, str]: A dictionary containing a success message.
+
+    Raises:
+        HTTPException: If a user with the provided username already exists.
+    """
     try:
         await auth_service.create_user(user_data.username, user_data.password)
         return {"message": "User created successfully"}
@@ -55,6 +79,19 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> TokenModel:
+    """
+    Authenticates a user and issues an access token upon successful authentication.
+
+    Args:
+        form_data (OAuth2PasswordRequestForm): The form data containing username and password.
+        auth_service (AuthService): The authentication service dependency.
+
+    Returns:
+        TokenModel: A Pydantic model containing the access token and its type.
+
+    Raises:
+        HTTPException: If authentication fails due to invalid credentials.
+    """
     try:
         user = await auth_service.authenticate_user(form_data.username, form_data.password)
         access_token = auth_service.create_access_token(
@@ -73,6 +110,15 @@ async def login_for_access_token(
     tags=["Authentication"]
 )
 async def read_users_me(current_user: User = Depends(get_current_user)) -> UserResponseModel:
+    """
+    Retrieves information about the currently authenticated user.
+
+    Args:
+        current_user (User): The currently authenticated user, provided by the dependency.
+
+    Returns:
+        UserResponseModel: A Pydantic model containing the user's information.
+    """
     return UserResponseModel(username=current_user.username)
 
 @router.get(
@@ -90,6 +136,19 @@ async def list_containers(
     current_user: User = Depends(get_current_user),
     container_info_service: ContainerInfoService = Depends(get_container_info_service)
 ) -> List[ContainerInfoModel]:
+    """
+    Retrieves a list of all Docker containers available on the system.
+
+    Args:
+        current_user (User): The currently authenticated user.
+        container_info_service (ContainerInfoService): The service to retrieve container information.
+
+    Returns:
+        List[ContainerInfoModel]: A list of Pydantic models representing Docker containers.
+
+    Raises:
+        HTTPException: If there is an error communicating with the Docker API.
+    """
     try:
         containers = await container_info_service.list_containers()
         return [ContainerInfoModel(**container.__dict__) for container in containers]
@@ -112,6 +171,20 @@ async def start_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ) -> Dict[str, str]:
+    """
+    Starts a Docker container identified by its ID.
+
+    Args:
+        request (ContainerActionRequest): The request containing the container ID to start.
+        current_user (User): The currently authenticated user.
+        container_action_service (ContainerActionService): The service to perform container actions.
+
+    Returns:
+        Dict[str, str]: A dictionary containing a success message.
+
+    Raises:
+        HTTPException: If the container is not found in the system.
+    """
     try:
         await container_action_service.start_container(request.container_id)
         return {"message": f"Container {request.container_id} started"}
@@ -134,6 +207,20 @@ async def stop_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ) -> Dict[str, str]:
+    """
+    Stops a Docker container identified by its ID.
+
+    Args:
+        request (ContainerActionRequest): The request containing the container ID to stop.
+        current_user (User): The currently authenticated user.
+        container_action_service (ContainerActionService): The service to perform container actions.
+
+    Returns:
+        Dict[str, str]: A dictionary containing a success message.
+
+    Raises:
+        HTTPException: If the container is not found in the system.
+    """
     try:
         await container_action_service.stop_container(request.container_id)
         return {"message": f"Container {request.container_id} stopped"}
@@ -156,6 +243,20 @@ async def restart_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ) -> Dict[str, str]:
+    """
+    Restarts a Docker container identified by its ID.
+
+    Args:
+        request (ContainerActionRequest): The request containing the container ID to restart.
+        current_user (User): The currently authenticated user.
+        container_action_service (ContainerActionService): The service to perform container actions.
+
+    Returns:
+        Dict[str, str]: A dictionary containing a success message.
+
+    Raises:
+        HTTPException: If the container is not found in the system.
+    """
     try:
         await container_action_service.restart_container(request.container_id)
         return {"message": f"Container {request.container_id} restarted"}
@@ -179,6 +280,21 @@ async def delete_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ) -> Dict[str, str]:
+    """
+    Deletes a Docker container identified by its ID.
+
+    Args:
+        request (ContainerActionRequest): The request containing the container ID to delete.
+        force (bool): Whether to force delete the container. Defaults to False.
+        current_user (User): The currently authenticated user.
+        container_action_service (ContainerActionService): The service to perform container actions.
+
+    Returns:
+        Dict[str, str]: A dictionary containing a success message.
+
+    Raises:
+        HTTPException: If the container is not found in the system.
+    """
     try:
         await container_action_service.delete_container(request.container_id, force)
         return {"message": f"Container {request.container_id} deleted"}
@@ -202,6 +318,21 @@ async def clone_and_run_container(
     current_user: User = Depends(get_current_user),
     container_action_service: ContainerActionService = Depends(get_container_action_service)
 ) -> Dict[str, str]:
+    """
+    Clones a GitHub repository, builds a Docker image from it, and runs the container.
+
+    Args:
+        request (CloneAndRunRequest): The request containing the GitHub URL and Dockerfile directory.
+        background_tasks (BackgroundTasks): FastAPI BackgroundTasks for running tasks in the background.
+        current_user (User): The currently authenticated user.
+        container_action_service (ContainerActionService): The service to perform container actions.
+
+    Returns:
+        Dict[str, str]: A dictionary containing a success message.
+
+    Raises:
+        HTTPException: If an error occurs during cloning, building, or running the container.
+    """
     background_tasks.add_task(container_action_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
     return {"message": "Container successfully cloned and started"}
 
@@ -222,20 +353,30 @@ async def get_container_stats(
     current_user: User = Depends(get_current_user),
     container_info_service: ContainerInfoService = Depends(get_container_info_service)
 ) -> Dict[str, Any]:
+    """
+    Retrieves resource usage statistics for a specified Docker container.
+
+    Args:
+        container_id (str): The unique identifier of the Docker container.
+        current_user (User): The currently authenticated user.
+        container_info_service (ContainerInfoService): The service to retrieve container information.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing CPU usage, memory usage, and network I/O statistics.
+
+    Raises:
+        HTTPException: If the container is not found or there is an error communicating with the Docker API.
+    """
     try:
         stats = await container_info_service.get_container_stats(container_id)
         return {
-            "cpu_usage": stats.get("cpu_usage", 0),
-            "system_cpu_usage": stats.get("system_cpu_usage", 0),
-            "memory_usage": stats.get("memory_usage", 0),
-            "memory_limit": stats.get("memory_limit", 0),
+            "cpu_usage": stats.get("cpu_usage_percent", 0),
+            "memory_usage": stats.get("memory_usage", "0 B"),
+            "memory_limit": stats.get("memory_limit", "0 B"),
             "network_io": stats.get("network_io", {}),
         }
-    except ContainerNotFoundException:
+    except (ContainerNotFoundException, DockerAPIException):
         raise HTTPException(status_code=404, detail="Container not found")
-    except DockerAPIException:
-        raise HTTPException(status_code=404, detail="Container not found")
-
 
 @router.get(
     "/containers/{container_id}",
@@ -253,9 +394,22 @@ async def get_container_info(
     current_user: User = Depends(get_current_user),
     container_info_service: ContainerInfoService = Depends(get_container_info_service)
 ) -> ContainerInfoModel:
+    """
+    Retrieves detailed information about a specific Docker container.
+
+    Args:
+        container_id (str): The unique identifier of the Docker container.
+        current_user (User): The currently authenticated user.
+        container_info_service (ContainerInfoService): The service to retrieve container information.
+
+    Returns:
+        ContainerInfoModel: A Pydantic model containing detailed information about the container.
+
+    Raises:
+        HTTPException: If the container is not found.
+    """
     try:
         container = await container_info_service.get_container_info(container_id)
         return ContainerInfoModel(**container.__dict__)
     except ContainerNotFoundException:
         raise HTTPException(status_code=404, detail="Container not found")
-
