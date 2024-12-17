@@ -14,6 +14,12 @@ class TokenService:
         to_encode.update({"exp": expire})
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
+    def create_refresh_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
+        to_encode = data.copy()
+        expire = datetime.utcnow() + (expires_delta or timedelta(days=7)) 
+        to_encode.update({"exp": expire})
+        return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+
     def validate_token(self, token: str) -> Optional[dict]:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])

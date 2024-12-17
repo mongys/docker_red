@@ -30,6 +30,7 @@ from src.domain.exceptions import (
 from typing import List, Dict, Any
 from datetime import timedelta
 from config.config import settings
+from src.presentation.dependencies import oauth2_scheme
 
 router = APIRouter()
 
@@ -68,7 +69,7 @@ async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends
     "/auth/token",
     response_model=TokenModel,
     summary="Get an access token",
-    description="Authenticates a user and returns an access token.",
+    description="Authenticates a user and returns an access token and a refresh token.",
     tags=["Authentication"],
     responses={
         200: {"description": "Token successfully issued."},
@@ -80,14 +81,14 @@ async def login_for_access_token(
     auth_service: AuthService = Depends(get_auth_service)
 ) -> TokenModel:
     """
-    Authenticates a user and issues an access token upon successful authentication.
+    Authenticates a user and issues both an access token and a refresh token.
 
     Args:
         form_data (OAuth2PasswordRequestForm): The form data containing username and password.
         auth_service (AuthService): The authentication service dependency.
 
     Returns:
-        TokenModel: A Pydantic model containing the access token and its type.
+        TokenModel: A Pydantic model containing the access token and refresh token.
 
     Raises:
         HTTPException: If authentication fails due to invalid credentials.
@@ -98,9 +99,48 @@ async def login_for_access_token(
             data={"sub": user.username},
             expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
         )
-        return {"access_token": access_token, "token_type": "bearer"}
+        refresh_token = auth_service.create_refresh_token(
+            data={"sub": user.username},
+            expires_delta=timedelta(days=7)  # Refresh token valid for 7 days
+        )
+        return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
     except AuthenticationException as e:
         raise HTTPException(status_code=401, detail=str(e))
+
+@router.post(
+    "/auth/refresh_token",
+    response_model=TokenModel,
+    summary="Refresh access token using the refresh token",
+    description="Refreshes the access token using the provided refresh token.",
+    tags=["Authentication"],
+    responses={
+        200: {"description": "Access token successfully refreshed."},
+        401: {"description": "Invalid or expired refresh token."},
+    }
+)
+async def refresh_access_token(
+    refresh_token: str = Depends(oauth2_scheme),
+    auth_service: AuthService = Depends(get_auth_service)
+) -> TokenModel:
+    """
+    Refreshes the access token using the provided refresh token.
+
+    Args:
+        refresh_token (str): The refresh token provided in the request.
+        auth_service (AuthService): The authentication service dependency.
+
+    Returns:
+        TokenModel: A Pydantic model containing the new access token.
+
+    Raises:
+        HTTPException: If the refresh token is invalid or expired.
+    """
+    try:
+        new_access_token = await auth_service.refresh_access_token(refresh_token)  # Add await here
+        return {"access_token": new_access_token, "token_type": "bearer"}
+    except AuthenticationException as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
 
 @router.get(
     "/auth/users/me",

@@ -1,4 +1,3 @@
-import logging
 from datetime import timedelta
 from typing import Optional
 from src.domain.entities import User
@@ -6,6 +5,7 @@ from src.domain.repositories import UserRepository
 from src.domain.exceptions import AuthenticationException, UserAlreadyExistsException
 from passlib.context import CryptContext
 from src.application.services.token.token_service import TokenService
+import logging
 
 logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -47,8 +47,26 @@ class AuthService:
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         return self.token_service.create_access_token(data, expires_delta)
 
+    def create_refresh_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
+        return self.token_service.create_refresh_token(data, expires_delta)
+
     def validate_token(self, token: str) -> Optional[dict]:
         return self.token_service.validate_token(token)
 
     async def get_user_by_username(self, username: str) -> Optional[User]:
         return await self.user_repo.get_user_by_username(username)
+
+    async def refresh_access_token(self, refresh_token: str) -> Optional[str]:
+        payload = self.validate_token(refresh_token)
+        if payload is None:
+            raise AuthenticationException("Invalid or expired refresh token")
+
+        username = payload.get("sub")
+        if username is None:
+            raise AuthenticationException("Invalid token payload")
+
+        user = await self.user_repo.get_user_by_username(username)
+        if user is None:
+            raise AuthenticationException("User not found")
+
+        return self.create_access_token(data={"sub": user.username})
