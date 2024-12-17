@@ -1,20 +1,6 @@
-"""
-This module provides dependency injection functions for FastAPI application.
-
-Dependencies include:
-- User repository
-- Container repository
-- Token service
-- Authentication service
-- Container action service
-- Container information service
-- Current user retrieval
-- Database session management
-"""
-
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError
+import jwt
 from asyncpg import Connection
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
@@ -147,13 +133,13 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = auth_service.token_service.validate_token(token)
-        if payload is None:
-            raise credentials_exception
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-    except JWTError:
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
         raise credentials_exception
 
     user = await auth_service.get_user_by_username(username=username)

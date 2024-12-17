@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
+import jwt
 from config.config import settings
-from jose import JWTError, jwt
 
 class TokenService:
     def __init__(self, secret_key: str = settings.secret_key, algorithm: str = settings.algorithm):
@@ -18,5 +18,7 @@ class TokenService:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
-        except JWTError:
+        except jwt.ExpiredSignatureError:
+            return None
+        except jwt.JWTError:
             return None
