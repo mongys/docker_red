@@ -1,5 +1,7 @@
 from datetime import timedelta
 from typing import Optional
+
+from fastapi import HTTPException
 from src.domain.entities import User
 from src.domain.repositories import UserRepository
 from src.domain.exceptions import AuthenticationException, UserAlreadyExistsException
@@ -56,17 +58,25 @@ class AuthService:
     async def get_user_by_username(self, username: str) -> Optional[User]:
         return await self.user_repo.get_user_by_username(username)
 
-    async def refresh_access_token(self, refresh_token: str) -> Optional[str]:
+    async def refresh_access_token(self, refresh_token: str) -> (str, str):
+        """
+        Валидирует Refresh Token и генерирует новый Access Token и Refresh Token.
+        """
         payload = self.validate_token(refresh_token)
-        if payload is None:
-            raise AuthenticationException("Invalid or expired refresh token")
+        if not payload:
+            raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
         username = payload.get("sub")
-        if username is None:
-            raise AuthenticationException("Invalid token payload")
+        if not username:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
 
-        user = await self.user_repo.get_user_by_username(username)
-        if user is None:
-            raise AuthenticationException("User not found")
+        user = await self.get_user_by_username(username)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-        return self.create_access_token(data={"sub": user.username})
+        # Генерируем новый Access Token и Refresh Token
+        new_access_token = self.create_access_token(data={"sub": username})
+        new_refresh_token = self.create_refresh_token(data={"sub": username})
+
+        return new_access_token, new_refresh_token
+

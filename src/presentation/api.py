@@ -9,7 +9,7 @@ Endpoints include:
 - Retrieving container statistics and detailed information
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
@@ -69,77 +69,79 @@ async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends
     "/auth/token",
     response_model=TokenModel,
     summary="Get an access token",
-    description="Authenticates a user and returns an access token and a refresh token.",
+    description="Authenticates a user and returns an access token. Refresh token is set in HttpOnly cookie.",
     tags=["Authentication"],
-    responses={
-        200: {"description": "Token successfully issued."},
-        401: {"description": "Authentication error."},
-    }
 )
 async def login_for_access_token(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> TokenModel:
     """
-    Authenticates a user and issues both an access token and a refresh token.
-
-    Args:
-        form_data (OAuth2PasswordRequestForm): The form data containing username and password.
-        auth_service (AuthService): The authentication service dependency.
-
-    Returns:
-        TokenModel: A Pydantic model containing the access token and refresh token.
-
-    Raises:
-        HTTPException: If authentication fails due to invalid credentials.
+    Аутентифицирует пользователя, устанавливает Refresh Token в HttpOnly cookie и возвращает Access Token.
     """
     try:
         user = await auth_service.authenticate_user(form_data.username, form_data.password)
+
+        # Генерация токенов
         access_token = auth_service.create_access_token(
             data={"sub": user.username},
             expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
         )
         refresh_token = auth_service.create_refresh_token(
             data={"sub": user.username},
-            expires_delta=timedelta(days=7)  # Refresh token valid for 7 days
+            expires_delta=timedelta(days=7)
         )
-        return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
-    except AuthenticationException as e:
-        raise HTTPException(status_code=401, detail=str(e))
+
+        # Устанавливаем Refresh Token в HttpOnly cookie
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,  # Используйте secure=True в продакшене (при HTTPS)
+            samesite="lax"
+        )
+
+        return {"access_token": access_token, "token_type": "bearer"}
+    except HTTPException as e:
+        raise e
 
 @router.post(
     "/auth/refresh_token",
     response_model=TokenModel,
-    summary="Refresh access token using the refresh token",
-    description="Refreshes the access token using the provided refresh token.",
+    summary="Refresh access token",
+    description="Refreshes the access token using the refresh token from HttpOnly cookie.",
     tags=["Authentication"],
-    responses={
-        200: {"description": "Access token successfully refreshed."},
-        401: {"description": "Invalid or expired refresh token."},
-    }
 )
 async def refresh_access_token(
-    refresh_token: str = Depends(oauth2_scheme),
+    request: Request,
+    response: Response,
     auth_service: AuthService = Depends(get_auth_service)
 ) -> TokenModel:
     """
-    Refreshes the access token using the provided refresh token.
-
-    Args:
-        refresh_token (str): The refresh token provided in the request.
-        auth_service (AuthService): The authentication service dependency.
-
-    Returns:
-        TokenModel: A Pydantic model containing the new access token.
-
-    Raises:
-        HTTPException: If the refresh token is invalid or expired.
+    Обновляет Access Token на основе Refresh Token из HttpOnly cookie.
     """
+    # Извлекаем Refresh Token из cookies
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token is missing")
+
     try:
-        new_access_token = await auth_service.refresh_access_token(refresh_token)  # Add await here
+        # Валидируем Refresh Token и получаем новый Access Token
+        new_access_token, new_refresh_token = await auth_service.refresh_access_token(refresh_token)
+
+        # Обновляем Refresh Token в cookie
+        response.set_cookie(
+            key="refresh_token",
+            value=new_refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="lax"
+        )
+
         return {"access_token": new_access_token, "token_type": "bearer"}
-    except AuthenticationException as e:
-        raise HTTPException(status_code=401, detail=str(e))
+    except HTTPException as e:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
 
 @router.get(
