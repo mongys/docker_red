@@ -112,34 +112,23 @@ def get_container_info_service(
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    token_service: TokenService = Depends(get_token_service)
 ) -> User:
-    """
-    Dependency to retrieve the current authenticated user.
-
-    Args:
-        token (str): The OAuth2 token provided in the request.
-        auth_service (AuthService): The authentication service dependency.
-
-    Returns:
-        User: The currently authenticated user.
-
-    Raises:
-        HTTPException: If the token is invalid or the user does not exist.
-    """
     credentials_exception = HTTPException(
         status_code=401,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        # Проверяем токен с помощью validate_token из TokenService
+        payload = token_service.validate_token(token)
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-    except jwt.ExpiredSignatureError:
-        raise credentials_exception
-    except jwt.JWTError:
+    except HTTPException as e:
+        raise e  # Перебрасываем уже пойманное исключение
+    except Exception as e:
         raise credentials_exception
 
     user = await auth_service.get_user_by_username(username=username)
