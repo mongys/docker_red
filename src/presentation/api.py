@@ -68,7 +68,6 @@ async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends
     except UserAlreadyExistsException as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-from fastapi import HTTPException
 
 @router.post(
     "/auth/token",
