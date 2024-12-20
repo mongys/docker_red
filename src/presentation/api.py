@@ -8,7 +8,7 @@ Endpoints include:
 - Cloning repositories and running containers
 - Retrieving container statistics and detailed information
 """
-
+import logging
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from src.application.services.auth.auth_service import AuthService
@@ -33,6 +33,7 @@ from config.config import settings
 from src.presentation.dependencies import oauth2_scheme
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post(
     "/auth/signup",
@@ -80,48 +81,40 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> TokenModel:
-    """
-    Authenticate a user and issue access and refresh tokens.
-
-    Args:
-        response (Response): FastAPI response object to set cookies.
-        form_data (OAuth2PasswordRequestForm): Form data containing `username` and `password`.
-        auth_service (AuthService): Dependency injection for the authentication service.
-
-    Returns:
-        TokenModel: A model containing the `access_token` and its type.
-
-    Raises:
-        HTTPException:
-            - 401 Unauthorized: If the username or password is invalid.
-            - 500 Internal Server Error: If an unexpected error occurs.
-    """
+    logger.info(f"Attempting login for username: {form_data.username}")
     try:
         user = await auth_service.authenticate_user(form_data.username, form_data.password)
+        logger.info(f"User authenticated: {user.username}")
 
         access_token = auth_service.create_access_token(
             data={"sub": user.username},
             expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
         )
+        logger.info(f"Access token created for user: {user.username}")
+
         refresh_token = auth_service.create_refresh_token(
             data={"sub": user.username},
             expires_delta=timedelta(days=7)
         )
+        logger.info(f"Refresh token created for user: {user.username}")
 
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True,  
+            secure=True,
             samesite="lax"
         )
+        logger.info("Refresh token set in cookies")
 
         return {"access_token": access_token, "token_type": "bearer"}
-
     except AuthenticationException:
+        logger.warning("Authentication failed for user")
         raise HTTPException(status_code=401, detail="Invalid username or password")
     except Exception as e:
+        logger.error(f"Unexpected error during login: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @router.post(
     "/auth/refresh_token",
@@ -130,50 +123,28 @@ async def login_for_access_token(
     description="Refreshes an expired access token using the refresh token stored in the HttpOnly cookie.",
     tags=["Authentication"],
 )
-async def refresh_access_token(
+async def refresh_access_token_endpoint(
     request: Request,
     response: Response,
     auth_service: AuthService = Depends(get_auth_service)
 ) -> TokenModel:
-    """
-    Refresh the access token using the refresh token from HttpOnly cookie.
-
-    Args:
-        request (Request): FastAPI request object to extract cookies.
-        response (Response): FastAPI response object to set cookies.
-        auth_service (AuthService): Dependency injection for the authentication service.
-
-    Returns:
-        TokenModel: A model containing the `access_token` and its type.
-
-    Raises:
-        HTTPException:
-            - 401 Unauthorized: If the refresh token is missing, invalid, or expired.
-            - 404 Not Found: If the associated user does not exist.
-            - 500 Internal Server Error: For unexpected server errors.
-    """
+    # Получаем refresh_token из cookies
     refresh_token = request.cookies.get("refresh_token")
+    logger.info(f"Received refresh_token: {refresh_token}")
+
     if not refresh_token:
+        logger.warning("Refresh token is missing in the cookies")
         raise HTTPException(status_code=401, detail="Refresh token is missing")
-
+        
     try:
-        new_access_token, new_refresh_token = await auth_service.refresh_access_token(refresh_token)
-
-        response.set_cookie(
-            key="refresh_token",
-            value=new_refresh_token,
-            httponly=True,
-            secure=True,
-            samesite="lax"
-        )
-
+        # Используем метод AuthService для обновления токена
+        new_access_token = await auth_service.refresh_access_token(refresh_token)
         return {"access_token": new_access_token, "token_type": "bearer"}
-
-    except AuthenticationException:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
-    except UserNotFoundException:
-        raise HTTPException(status_code=404, detail="User associated with the token not found")
+    except HTTPException as e:
+        logger.warning(f"HTTPException during refresh token: {e.detail}")
+        raise
     except Exception as e:
+        logger.error(f"Unexpected error during refresh token: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

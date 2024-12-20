@@ -18,16 +18,23 @@ class AuthService:
         self.token_service = token_service
 
     async def authenticate_user(self, username: str, password: str) -> User:
-        user = await self.user_repo.get_user_by_username(username)
-        if not user:
-            logger.warning(f"User {username} not found")
-            raise AuthenticationException("Incorrect username or password")
+        logger.info(f"Authenticating user: {username}")
+        try:
+            user = await self.user_repo.get_user_by_username(username)
+            if not user:
+                logger.warning(f"User not found: {username}")
+                raise AuthenticationException("Incorrect username or password")
 
-        if not self.verify_password(password, user.hashed_password):
-            logger.warning(f"Invalid password for user {username}")
-            raise AuthenticationException("Incorrect username or password")
+            if not self.verify_password(password, user.hashed_password):
+                logger.warning(f"Invalid password for user: {username}")
+                raise AuthenticationException("Incorrect username or password")
 
-        return user
+            logger.info(f"User authenticated: {username}")
+            return user
+        except Exception as e:
+            logger.error(f"Error during user authentication: {str(e)}")
+            raise
+
 
     async def create_user(self, username: str, password: str) -> None:
         existing_user = await self.user_repo.get_user_by_username(username)
@@ -58,25 +65,26 @@ class AuthService:
     async def get_user_by_username(self, username: str) -> Optional[User]:
         return await self.user_repo.get_user_by_username(username)
 
-    async def refresh_access_token(self, refresh_token: str) -> (str, str):
-        """
-        Валидирует Refresh Token и генерирует новый Access Token и Refresh Token.
-        """
-        payload = self.validate_token(refresh_token)
-        if not payload:
-            raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    async def refresh_access_token(self, refresh_token: str) -> str:
+        try:
+            payload = self.token_service.validate_token(refresh_token)
+            logger.info(f"Token payload: {payload}")
+            if not payload or payload.get("type") != "refresh":
+                raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
-        username = payload.get("sub")
-        if not username:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
+            username = payload.get("sub")
+            if not username:
+                raise HTTPException(status_code=401, detail="Invalid token payload")
 
-        user = await self.get_user_by_username(username)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            user = await self.get_user_by_username(username)
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
 
-        # Генерируем новый Access Token и Refresh Token
-        new_access_token = self.create_access_token(data={"sub": username})
-        new_refresh_token = self.create_refresh_token(data={"sub": username})
-
-        return new_access_token, new_refresh_token
+            # Создаем новый Access Token
+            new_token = self.token_service.create_access_token(data={"sub": username})
+            logger.info(f"Generated new access token for user: {username}")
+            return new_token
+        except Exception as e:
+            logger.error(f"Error refreshing token: {str(e)}")
+            raise
 
