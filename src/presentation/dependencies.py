@@ -5,7 +5,7 @@ from asyncpg import Connection
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
 from src.application.services.container.container_info_service import ContainerInfoService
-from src.application.services.token.token_service import TokenService
+from src.application.services.token.token_tools import TokenTools
 from src.infrastructure.repositories.user_repository import DatabaseUserRepository
 from src.infrastructure.repositories.container_repository import DockerContainerRepository
 from src.domain.entities import User
@@ -53,31 +53,31 @@ def get_container_repo(request: Request) -> DockerContainerRepository:
     return DockerContainerRepository(db_pool=db_pool)
 
 
-def get_token_service() -> TokenService:
+def get_token_tools() -> TokenTools:
     """
     Dependency to retrieve the token service.
 
     Returns:
-        TokenService: An instance of the token service.
+        TokenTools: An instance of the token service.
     """
-    return TokenService(secret_key=settings.secret_key, algorithm=settings.algorithm)
+    return TokenTools(secret_key=settings.secret_key, algorithm=settings.algorithm)
 
 
 def get_auth_service(
     user_repo: DatabaseUserRepository = Depends(get_user_repo),
-    token_service: TokenService = Depends(get_token_service)
+    token_tools: TokenTools = Depends(get_token_tools)
 ) -> AuthService:
     """
     Dependency to retrieve the authentication service.
 
     Args:
         user_repo (DatabaseUserRepository): The user repository dependency.
-        token_service (TokenService): The token service dependency.
+        token_tools (TokenTools): The token service dependency.
 
     Returns:
         AuthService: An instance of the authentication service.
     """
-    return AuthService(user_repo=user_repo, token_service=token_service)
+    return AuthService(user_repo=user_repo, token_tools=token_tools)
 
 
 def get_container_action_service(
@@ -113,7 +113,7 @@ def get_container_info_service(
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     auth_service: AuthService = Depends(get_auth_service),
-    token_service: TokenService = Depends(get_token_service)
+    token_tools: TokenTools = Depends(get_token_tools)
 ) -> User:
     credentials_exception = HTTPException(
         status_code=401,
@@ -121,8 +121,8 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # Проверяем токен с помощью validate_token из TokenService
-        payload = token_service.validate_token(token)
+        # Проверяем токен с помощью validate_token из TokenTools
+        payload = token_tools.validate_token(token)
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception

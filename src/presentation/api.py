@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request,
 from fastapi.security import OAuth2PasswordRequestForm
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
-from src.application.services.token.token_service import TokenService
+from src.application.services.token.token_tools import TokenTools
 from src.application.services.container.container_info_service import ContainerInfoService
 from src.presentation.dependencies import (
     get_auth_service, get_container_action_service, 
@@ -131,7 +131,7 @@ async def login_for_access_token(
 async def get_current_tokens(
     request: Request,
     current_user: User = Depends(get_current_user),
-    token_service: TokenService = Depends()
+    token_tools: TokenTools = Depends()
 ) -> Dict[str, str]:
     """
     Retrieves the current access and refresh tokens along with their expiration times for the authenticated user.
@@ -139,7 +139,7 @@ async def get_current_tokens(
     Args:
         request (Request): The HTTP request object containing cookies.
         current_user (User): The currently authenticated user, provided by the dependency.
-        token_service (TokenService): The service for handling token operations.
+        token_tools (TokenTools): The service for handling token operations.
 
     Returns:
         Dict[str, str]: A dictionary containing access and refresh tokens, and their expiration times.
@@ -157,12 +157,12 @@ async def get_current_tokens(
 
         # Decode tokens to extract expiration information
         try:
-            access_payload = token_service.validate_token(access_token)
+            access_payload = token_tools.validate_token(access_token)
         except HTTPException as e:
             raise HTTPException(status_code=401, detail="Invalid access token.") from e
 
         try:
-            refresh_payload = token_service.validate_token(refresh_token)
+            refresh_payload = token_tools.validate_token(refresh_token)
         except HTTPException as e:
             raise HTTPException(status_code=401, detail="Invalid refresh token.") from e
 

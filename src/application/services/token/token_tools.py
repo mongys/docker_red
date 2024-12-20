@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TokenService:
+class TokenTools:
     def __init__(self, secret_key: str = settings.secret_key, algorithm: str = settings.algorithm):
         self.secret_key = secret_key
         self.algorithm = algorithm
