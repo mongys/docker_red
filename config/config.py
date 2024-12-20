@@ -20,6 +20,11 @@ class AppSettings:
         return self._settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
     @property
+    def refresh_token_expire_days(self):
+        return self._settings.REFRESH_TOKEN_EXPIRE_DAYS
+
+
+    @property
     def db_driver(self):
         return self._settings.DB_DRIVER
 

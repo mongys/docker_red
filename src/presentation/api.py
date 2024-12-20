@@ -9,10 +9,12 @@ Endpoints include:
 - Retrieving container statistics and detailed information
 """
 import logging
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
+from src.application.services.token.token_service import TokenService
 from src.application.services.container.container_info_service import ContainerInfoService
 from src.presentation.dependencies import (
     get_auth_service, get_container_action_service, 
@@ -94,7 +96,7 @@ async def login_for_access_token(
 
         refresh_token = auth_service.create_refresh_token(
             data={"sub": user.username},
-            expires_delta=timedelta(days=7)
+            expires_delta=timedelta(days=settings.refresh_token_expire_days)
         )
         logger.info(f"Refresh token created for user: {user.username}")
 
@@ -115,6 +117,64 @@ async def login_for_access_token(
         logger.error(f"Unexpected error during login: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@router.get(
+    "/auth/tokens/current",
+    response_model=Dict[str, str],
+    summary="Get current tokens and expiration info",
+    description="Returns the current access and refresh tokens along with their expiration times for the authenticated user.",
+    tags=["Authentication"],
+    responses={
+        200: {"description": "Tokens and expiration information retrieved successfully."},
+        401: {"description": "Unauthorized access."},
+    }
+)
+async def get_current_tokens(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    token_service: TokenService = Depends()
+) -> Dict[str, str]:
+    """
+    Retrieves the current access and refresh tokens along with their expiration times for the authenticated user.
+
+    Args:
+        request (Request): The HTTP request object containing cookies.
+        current_user (User): The currently authenticated user, provided by the dependency.
+        token_service (TokenService): The service for handling token operations.
+
+    Returns:
+        Dict[str, str]: A dictionary containing access and refresh tokens, and their expiration times.
+    """
+    try:
+        # Extract tokens from request
+        auth_header = request.headers.get("Authorization")
+        access_token = auth_header.split(" ")[1] if auth_header and " " in auth_header else None
+        refresh_token = request.cookies.get("refresh_token")
+
+        if not access_token:
+            raise HTTPException(status_code=401, detail="Access token is missing.")
+        if not refresh_token:
+            raise HTTPException(status_code=401, detail="Refresh token is missing.")
+
+        # Decode tokens to extract expiration information
+        try:
+            access_payload = token_service.validate_token(access_token)
+        except HTTPException as e:
+            raise HTTPException(status_code=401, detail="Invalid access token.") from e
+
+        try:
+            refresh_payload = token_service.validate_token(refresh_token)
+        except HTTPException as e:
+            raise HTTPException(status_code=401, detail="Invalid refresh token.") from e
+
+        return {
+            "access_token": access_token,
+            "access_token_expiry": datetime.utcfromtimestamp(access_payload["exp"]).isoformat(),
+            "refresh_token": refresh_token,
+            "refresh_token_expiry": datetime.utcfromtimestamp(refresh_payload["exp"]).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving tokens: {str(e)}")
+        raise HTTPException(status_code=500, detail="Could not retrieve tokens and expiration info.")
 
 @router.post(
     "/auth/refresh_token",
