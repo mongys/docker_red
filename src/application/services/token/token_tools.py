@@ -58,30 +58,4 @@ class TokenTools:
             logger.error(f"Invalid token error: {str(e)}")
             raise HTTPException(status_code=401, detail="Invalid token")
         
-    async def refresh_access_token(self, refresh_token: str) -> str:
-        try:
-            payload = self.validate_token(refresh_token)
-            logger.info(f"Refresh token payload: {payload}")
-            if not payload or payload.get("type") != "refresh":
-                logger.warning("Invalid token type for refresh")
-                raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
-            username = payload.get("sub")
-            if not username:
-                logger.warning("Username missing in token payload")
-                raise HTTPException(status_code=401, detail="Invalid token payload")
-
-            
-            new_access_token = self.create_token(
-                data={"sub": username},
-                token_type="access",
-                expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
-            )
-            
-            logger.info(f"Generated new access token for user: {username}")
-            return new_access_token
-        except HTTPException as e:
-            raise e  
-        except Exception as e:
-            logger.error(f"Error refreshing token: {str(e)}")
-            raise HTTPException(status_code=500, detail="Internal server error")

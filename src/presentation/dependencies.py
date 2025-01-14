@@ -5,6 +5,7 @@ from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
 from src.application.services.container.container_info_service import ContainerInfoService
 from src.application.services.token.token_tools import TokenTools
+from src.application.services.token.refresh_token import RefreshToken
 from src.infrastructure.repositories.user_repository import DatabaseUserRepository
 from src.infrastructure.repositories.container_repository import DockerContainerRepository
 from src.domain.entities import User
@@ -30,6 +31,7 @@ def get_user_repo(request: Request) -> DatabaseUserRepository:
     if db_pool is None:
         raise HTTPException(status_code=500, detail="Database connection pool is not initialized")
     return DatabaseUserRepository(db_pool=db_pool)
+
 
 
 def get_container_repo(request: Request) -> DockerContainerRepository:
@@ -60,10 +62,19 @@ def get_token_tools() -> TokenTools:
     """
     return TokenTools(secret_key=settings.secret_key, algorithm=settings.algorithm)
 
+def get_refresh_token(
+    token_tools: TokenTools = Depends(get_token_tools),
+    user_repo: DatabaseUserRepository = Depends(get_user_repo)
+) -> RefreshToken:
+    """
+    Dependency to retrieve the refresh token service.
+    """
+    return RefreshToken(token_tools=token_tools, user_repo=user_repo)
 
 def get_auth_service(
     user_repo: DatabaseUserRepository = Depends(get_user_repo),
-    token_tools: TokenTools = Depends(get_token_tools)
+    token_tools: TokenTools = Depends(get_token_tools),
+    refresh_token: RefreshToken = Depends(get_refresh_token)
 ) -> AuthService:
     """
     Dependency to retrieve the authentication service.
@@ -75,7 +86,7 @@ def get_auth_service(
     Returns:
         AuthService: An instance of the authentication service.
     """
-    return AuthService(user_repo=user_repo, token_tools=token_tools)
+    return AuthService(user_repo=user_repo, token_tools=token_tools, refresh_token=refresh_token)
 
 
 def get_container_action_service(
@@ -128,24 +139,21 @@ async def get_current_user(
             logger.warning("Invalid access token payload")
             raise HTTPException(status_code=401, detail="Invalid access token")
     except HTTPException as e:
-        # Попытка обновить access токен с помощью refresh токена
         if not refresh_token:
             logger.warning("Refresh token is missing")
             raise HTTPException(status_code=401, detail="Refresh token is missing")
         try:
             new_access_token = await auth_service.refresh_access_token(refresh_token)
-            # Устанавливаем новый access токен в куки
             response.set_cookie(
                 key="access_token",
                 value=new_access_token,
                 httponly=True,
-                secure=True,  # Установи True в продакшене
+                secure=True,  
                 samesite="lax",
                 max_age=settings.access_token_expire_minutes * 60
             )
             logger.info("Access token refreshed and set in cookies")
 
-            # Декодируем новый access токен
             payload = token_tools.validate_token(new_access_token)
             username = payload.get("sub")
             if username is None:
@@ -188,3 +196,4 @@ def get_token_tools() -> TokenTools:
         TokenTools: An instance of the token service.
     """
     return TokenTools(secret_key=settings.secret_key, algorithm=settings.algorithm)
+

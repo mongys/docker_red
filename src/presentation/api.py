@@ -15,13 +15,15 @@ from fastapi.security import OAuth2PasswordRequestForm
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
 from src.application.services.token.token_tools import TokenTools
+from src.application.services.token.refresh_token import RefreshToken
 from src.application.services.container.container_info_service import ContainerInfoService
 from src.presentation.dependencies import (
     get_auth_service, get_container_action_service, 
-    get_container_info_service, get_current_user, get_token_tools
+    get_container_info_service, get_current_user, 
+    get_token_tools, get_refresh_token
 )
 from src.presentation.schemas import (
-    UserCreateModel, TokenModel, UserResponseModel, ContainerInfoModel,
+    UserCreateModel, UserResponseModel, ContainerInfoModel,
     ContainerActionRequest, CloneAndRunRequest
 )
 from src.domain.entities import User
@@ -109,7 +111,6 @@ async def login_for_access_token(
         )
         logger.info("Access token set in cookies")
 
-        # Устанавливаем refresh токен в HttpOnly куки
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
@@ -164,7 +165,7 @@ async def get_current_tokens(
         if not access_token:
             raise HTTPException(status_code=401, detail="Access token is missing.")
         if not refresh_token:
-            raise HTTPException(status_code=401, detail="Refresh token is missing.")
+            raise HTTPException(status_code=401, detail="Unauthorized")
 
         # Декодируем токены для получения времени истечения
         access_payload = token_tools.validate_token(access_token)
@@ -220,7 +221,8 @@ async def logout(
 async def refresh_access_token_endpoint(
     request: Request,
     response: Response,
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    refresh_token: RefreshToken = Depends(get_refresh_token)
 ) -> Dict[str, str]:
     """
     Refreshes an expired access token using the refresh token stored in the HttpOnly cookie.
@@ -238,19 +240,17 @@ async def refresh_access_token_endpoint(
     logger.info("Attempting to refresh access token")
 
     if not refresh_token:
-        logger.warning("Refresh token is missing in the cookies")
-        raise HTTPException(status_code=401, detail="Refresh token is missing")
+        logger.warning("Unauthorized")
+        raise HTTPException(status_code=401, detail="Unauthorized")
         
     try:
-        # Используем метод AuthService для обновления токена
         new_access_token = await auth_service.refresh_access_token(refresh_token)
         
-        # Устанавливаем новый access токен в HttpOnly куки
         response.set_cookie(
             key="access_token",
             value=new_access_token,
             httponly=True,
-            secure=True,  # Установи True в продакшене
+            secure=True,  
             samesite="lax",
             max_age=settings.access_token_expire_minutes * 60
         )
