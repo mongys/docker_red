@@ -41,7 +41,7 @@ class AuthService:
             logger.warning(f"User {username} already exists")
             raise UserAlreadyExistsException("User already exists")
 
-        hashed_password = self.get_password_hash(password)
+        hashed_password = self.get_password_hash(password) #отдельный класс для паролей
         user = User(username=username, hashed_password=hashed_password)
         await self.user_repo.create_user(user)
         logger.info(f"User {username} created successfully")
@@ -63,6 +63,3 @@ class AuthService:
 
     async def refresh_access_token(self, refresh_token: str) -> str:
         return await self.refresh_token.refresh_access_token(refresh_token)
-
-
-

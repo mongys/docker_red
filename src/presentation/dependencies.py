@@ -127,7 +127,7 @@ async def get_current_user(
 ) -> User:
     access_token = request.cookies.get("access_token")
     refresh_token = request.cookies.get("refresh_token")
-
+    #exceptions перенести в апи, сделать кастомные ошибки. убрать refresh тут
     if not access_token:
         logger.warning("Access token is missing")
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -156,7 +156,7 @@ async def get_current_user(
 
             payload = token_tools.validate_token(new_access_token)
             username = payload.get("sub")
-            if username is None:
+            if username is None: #на is not
                 logger.warning("Invalid new access token payload after refresh")
                 raise HTTPException(status_code=401, detail="Invalid access token after refresh")
         except HTTPException as refresh_exception:

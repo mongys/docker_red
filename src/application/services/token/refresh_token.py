@@ -12,7 +12,7 @@ class RefreshToken:
         self.token_tools = token_tools
         self.user_repo = user_repo
 
-    async def refresh_access_token(self, refresh_token: str) -> str:
+    async def refresh_access_token(self, refresh_token: str) -> str: #магический метод call
         """
         Refreshes an expired access token using the provided refresh token.
 

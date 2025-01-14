@@ -45,7 +45,7 @@ class TokenTools:
             raise HTTPException(status_code=500, detail=f"{token_type.capitalize()} token creation failed")
 
 
-
+    #вынести в отдельный класс
     def validate_token(self, token: str) -> dict:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])

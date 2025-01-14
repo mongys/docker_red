@@ -218,7 +218,7 @@ async def logout(
     description="Refreshes an expired access token using the refresh token stored in the HttpOnly cookie.",
     tags=["Authentication"],
 )
-async def refresh_access_token_endpoint(
+async def refresh_access_token( 
     request: Request,
     response: Response,
     auth_service: AuthService = Depends(get_auth_service),
@@ -236,13 +236,14 @@ async def refresh_access_token_endpoint(
         Dict[str, str]: A dictionary containing a success message.
     """
     # Получаем refresh_token из куки
+    #убрать в класс с юзкейсом
     refresh_token = request.cookies.get("refresh_token")
     logger.info("Attempting to refresh access token")
 
     if not refresh_token:
         logger.warning("Unauthorized")
         raise HTTPException(status_code=401, detail="Unauthorized")
-        
+    
     try:
         new_access_token = await auth_service.refresh_access_token(refresh_token)
         
