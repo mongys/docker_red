@@ -39,6 +39,7 @@ starlette = "0.41.0"
 typing-extensions = "4.12.2"
 urllib3 = "2.2.3"
 uvicorn = "0.32.0"
+pyjwt = "^2.10.1"
 
 
 [build-system]

@@ -1,6 +1,6 @@
 from datetime import timedelta
 from typing import Optional
-
+from config.config import settings
 from fastapi import HTTPException
 from src.domain.entities import User
 from src.domain.repositories import UserRepository
@@ -35,7 +35,6 @@ class AuthService:
             logger.error(f"Error during user authentication: {str(e)}")
             raise
 
-
     async def create_user(self, username: str, password: str) -> None:
         existing_user = await self.user_repo.get_user_by_username(username)
         if existing_user:
@@ -53,38 +52,16 @@ class AuthService:
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         return pwd_context.verify(plain_password, hashed_password)
 
-    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
-        return self.token_tools.create_access_token(data, expires_delta)
+    def create_token(self, data: dict, token_type: str, expires_delta: Optional[timedelta] = None) -> str:
+        return self.token_tools.create_token(data, token_type, expires_delta)
 
-    def create_refresh_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
-        return self.token_tools.create_refresh_token(data, expires_delta)
-
-    def validate_token(self, token: str) -> Optional[dict]:
+    def validate_token(self, token: str) -> dict:
         return self.token_tools.validate_token(token)
 
     async def get_user_by_username(self, username: str) -> Optional[User]:
         return await self.user_repo.get_user_by_username(username)
 
     async def refresh_access_token(self, refresh_token: str) -> str:
-        try:
-            payload = self.token_tools.validate_token(refresh_token)
-            logger.info(f"Token payload: {payload}")
-            if not payload or payload.get("type") != "refresh":
-                raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+        return await self.token_tools.refresh_access_token(refresh_token)
 
-            username = payload.get("sub")
-            if not username:
-                raise HTTPException(status_code=401, detail="Invalid token payload")
-
-            user = await self.get_user_by_username(username)
-            if not user:
-                raise HTTPException(status_code=404, detail="User not found")
-
-            # Создаем новый Access Token
-            new_token = self.token_tools.create_access_token(data={"sub": username})
-            logger.info(f"Generated new access token for user: {username}")
-            return new_token
-        except Exception as e:
-            logger.error(f"Error refreshing token: {str(e)}")
-            raise
 

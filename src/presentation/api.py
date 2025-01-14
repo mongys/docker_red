@@ -18,7 +18,7 @@ from src.application.services.token.token_tools import TokenTools
 from src.application.services.container.container_info_service import ContainerInfoService
 from src.presentation.dependencies import (
     get_auth_service, get_container_action_service, 
-    get_container_info_service, get_current_user
+    get_container_info_service, get_current_user, get_token_tools
 )
 from src.presentation.schemas import (
     UserCreateModel, TokenModel, UserResponseModel, ContainerInfoModel,
@@ -27,12 +27,11 @@ from src.presentation.schemas import (
 from src.domain.entities import User
 from src.domain.exceptions import (
     AuthenticationException, UserAlreadyExistsException,
-    ContainerNotFoundException, DockerAPIException, UserNotFoundException
+    ContainerNotFoundException, DockerAPIException
 )
 from typing import List, Dict, Any
 from datetime import timedelta
 from config.config import settings
-from src.presentation.dependencies import oauth2_scheme
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -71,44 +70,57 @@ async def signup(user_data: UserCreateModel, auth_service: AuthService = Depends
 
 @router.post(
     "/auth/token",
-    response_model=TokenModel,
-    summary="Get an access token",
-    description="Authenticates a user with their credentials and returns an access token. "
-                "The refresh token is set in an HttpOnly cookie for secure long-term authentication.",
+    response_model=Dict[str, str],
+    summary="Authenticate user and set tokens in cookies",
+    description="Authenticates a user and sets access and refresh tokens in HttpOnly cookies.",
     tags=["Authentication"],
 )
 async def login_for_access_token(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
-) -> TokenModel:
+) -> Dict[str, str]:
     logger.info(f"Attempting login for username: {form_data.username}")
     try:
         user = await auth_service.authenticate_user(form_data.username, form_data.password)
         logger.info(f"User authenticated: {user.username}")
-
-        access_token = auth_service.create_access_token(
+        access_token = auth_service.create_token(
             data={"sub": user.username},
-            expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
+            token_type="access",
+            expires_delta=timedelta(minutes=15)
         )
         logger.info(f"Access token created for user: {user.username}")
 
-        refresh_token = auth_service.create_refresh_token(
+        refresh_token = auth_service.create_token(
             data={"sub": user.username},
-            expires_delta=timedelta(days=settings.refresh_token_expire_days)
+            token_type="refresh",
+            expires_delta=timedelta(days=7)
         )
         logger.info(f"Refresh token created for user: {user.username}")
+       
 
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True, 
+            samesite="lax",
+            max_age=settings.access_token_expire_minutes * 60
+        )
+        logger.info("Access token set in cookies")
+
+        # Устанавливаем refresh токен в HttpOnly куки
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True,
-            samesite="lax"
+            secure=True,  
+            samesite="lax",
+            max_age=settings.refresh_token_expire_days * 24 * 60 * 60
         )
         logger.info("Refresh token set in cookies")
 
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {"message": "Login successful"}
     except AuthenticationException:
         logger.warning("Authentication failed for user")
         raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -116,24 +128,25 @@ async def login_for_access_token(
         logger.error(f"Unexpected error during login: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
 @router.get(
     "/auth/tokens/current",
     response_model=Dict[str, str],
-    summary="Get current tokens and expiration info",
-    description="Returns the current access and refresh tokens along with their expiration times for the authenticated user.",
+    summary="Get current tokens' expiration info",
+    description="Returns the expiration times for the current access and refresh tokens for the authenticated user.",
     tags=["Authentication"],
     responses={
-        200: {"description": "Tokens and expiration information retrieved successfully."},
+        200: {"description": "Tokens expiration information retrieved successfully."},
         401: {"description": "Unauthorized access."},
     }
 )
 async def get_current_tokens(
     request: Request,
     current_user: User = Depends(get_current_user),
-    token_tools: TokenTools = Depends()
+    token_tools: TokenTools = Depends(get_token_tools)
 ) -> Dict[str, str]:
     """
-    Retrieves the current access and refresh tokens along with their expiration times for the authenticated user.
+    Retrieves the expiration times for the current access and refresh tokens for the authenticated user.
 
     Args:
         request (Request): The HTTP request object containing cookies.
@@ -141,12 +154,11 @@ async def get_current_tokens(
         token_tools (TokenTools): The service for handling token operations.
 
     Returns:
-        Dict[str, str]: A dictionary containing access and refresh tokens, and their expiration times.
+        Dict[str, str]: A dictionary containing expiration times of access and refresh tokens.
     """
     try:
-        # Extract tokens from request
-        auth_header = request.headers.get("Authorization")
-        access_token = auth_header.split(" ")[1] if auth_header and " " in auth_header else None
+        # Извлекаем токены из куки
+        access_token = request.cookies.get("access_token")
         refresh_token = request.cookies.get("refresh_token")
 
         if not access_token:
@@ -154,30 +166,53 @@ async def get_current_tokens(
         if not refresh_token:
             raise HTTPException(status_code=401, detail="Refresh token is missing.")
 
-        # Decode tokens to extract expiration information
-        try:
-            access_payload = token_tools.validate_token(access_token)
-        except HTTPException as e:
-            raise HTTPException(status_code=401, detail="Invalid access token.") from e
-
-        try:
-            refresh_payload = token_tools.validate_token(refresh_token)
-        except HTTPException as e:
-            raise HTTPException(status_code=401, detail="Invalid refresh token.") from e
+        # Декодируем токены для получения времени истечения
+        access_payload = token_tools.validate_token(access_token)
+        refresh_payload = token_tools.validate_token(refresh_token)
 
         return {
-            "access_token": access_token,
             "access_token_expiry": datetime.utcfromtimestamp(access_payload["exp"]).isoformat(),
-            "refresh_token": refresh_token,
             "refresh_token_expiry": datetime.utcfromtimestamp(refresh_payload["exp"]).isoformat(),
         }
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Error retrieving tokens: {str(e)}")
         raise HTTPException(status_code=500, detail="Could not retrieve tokens and expiration info.")
 
 @router.post(
+    "/auth/logout",
+    response_model=Dict[str, str],
+    summary="Logout user",
+    description="Logs out the user by clearing the tokens from cookies.",
+    tags=["Authentication"],
+    responses={
+        200: {"description": "Logged out successfully."},
+    }
+)
+async def logout(
+    response: Response
+) -> Dict[str, str]:
+    """
+    Logs out the user by clearing the tokens from cookies.
+
+    Args:
+        response (Response): The HTTP response object to delete cookies.
+
+    Returns:
+        Dict[str, str]: A dictionary containing a success message.
+    """
+    # Удаляем куки
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+    logger.info("User logged out and tokens cleared from cookies")
+
+    return {"message": "Logged out successfully"}
+
+
+@router.post(
     "/auth/refresh_token",
-    response_model=TokenModel,
+    response_model=Dict[str, str],
     summary="Refresh access token",
     description="Refreshes an expired access token using the refresh token stored in the HttpOnly cookie.",
     tags=["Authentication"],
@@ -186,10 +221,21 @@ async def refresh_access_token_endpoint(
     request: Request,
     response: Response,
     auth_service: AuthService = Depends(get_auth_service)
-) -> TokenModel:
-    # Получаем refresh_token из cookies
+) -> Dict[str, str]:
+    """
+    Refreshes an expired access token using the refresh token stored in the HttpOnly cookie.
+
+    Args:
+        request (Request): The HTTP request object containing cookies.
+        response (Response): The HTTP response object to set cookies.
+        auth_service (AuthService): The authentication service dependency.
+
+    Returns:
+        Dict[str, str]: A dictionary containing a success message.
+    """
+    # Получаем refresh_token из куки
     refresh_token = request.cookies.get("refresh_token")
-    logger.info(f"Received refresh_token: {refresh_token}")
+    logger.info("Attempting to refresh access token")
 
     if not refresh_token:
         logger.warning("Refresh token is missing in the cookies")
@@ -198,7 +244,19 @@ async def refresh_access_token_endpoint(
     try:
         # Используем метод AuthService для обновления токена
         new_access_token = await auth_service.refresh_access_token(refresh_token)
-        return {"access_token": new_access_token, "token_type": "bearer"}
+        
+        # Устанавливаем новый access токен в HttpOnly куки
+        response.set_cookie(
+            key="access_token",
+            value=new_access_token,
+            httponly=True,
+            secure=True,  # Установи True в продакшене
+            samesite="lax",
+            max_age=settings.access_token_expire_minutes * 60
+        )
+        logger.info("Access token refreshed and set in cookies")
+        
+        return {"message": "Access token refreshed successfully"}
     except HTTPException as e:
         logger.warning(f"HTTPException during refresh token: {e.detail}")
         raise
@@ -225,6 +283,8 @@ async def read_users_me(current_user: User = Depends(get_current_user)) -> UserR
         UserResponseModel: A Pydantic model containing the user's information.
     """
     return UserResponseModel(username=current_user.username)
+
+
 
 @router.get(
     "/containers/",

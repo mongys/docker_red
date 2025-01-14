@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-from asyncpg import Pool, Connection
+from asyncpg import Pool
 from src.domain.repositories import UserRepository
 from src.domain.entities import User
 

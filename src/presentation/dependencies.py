@@ -1,6 +1,5 @@
-from fastapi import Depends, HTTPException, Request
-from fastapi.security import OAuth2PasswordBearer
-import jwt
+import logging
+from fastapi import Depends, HTTPException, Request, Response
 from asyncpg import Connection
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
@@ -12,8 +11,7 @@ from src.domain.entities import User
 from src.database import get_db_connection
 from config.config import settings
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
-
+logger = logging.getLogger(__name__)
 
 def get_user_repo(request: Request) -> DatabaseUserRepository:
     """
@@ -111,31 +109,63 @@ def get_container_info_service(
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    response: Response,
     auth_service: AuthService = Depends(get_auth_service),
     token_tools: TokenTools = Depends(get_token_tools)
 ) -> User:
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    access_token = request.cookies.get("access_token")
+    refresh_token = request.cookies.get("refresh_token")
+
+    if not access_token:
+        logger.warning("Access token is missing")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     try:
-        # Проверяем токен с помощью validate_token из TokenTools
-        payload = token_tools.validate_token(token)
+        payload = token_tools.validate_token(access_token)
         username: str = payload.get("sub")
         if username is None:
-            raise credentials_exception
+            logger.warning("Invalid access token payload")
+            raise HTTPException(status_code=401, detail="Invalid access token")
     except HTTPException as e:
-        raise e  # Перебрасываем уже пойманное исключение
-    except Exception as e:
-        raise credentials_exception
+        # Попытка обновить access токен с помощью refresh токена
+        if not refresh_token:
+            logger.warning("Refresh token is missing")
+            raise HTTPException(status_code=401, detail="Refresh token is missing")
+        try:
+            new_access_token = await auth_service.refresh_access_token(refresh_token)
+            # Устанавливаем новый access токен в куки
+            response.set_cookie(
+                key="access_token",
+                value=new_access_token,
+                httponly=True,
+                secure=True,  # Установи True в продакшене
+                samesite="lax",
+                max_age=settings.access_token_expire_minutes * 60
+            )
+            logger.info("Access token refreshed and set in cookies")
+
+            # Декодируем новый access токен
+            payload = token_tools.validate_token(new_access_token)
+            username = payload.get("sub")
+            if username is None:
+                logger.warning("Invalid new access token payload after refresh")
+                raise HTTPException(status_code=401, detail="Invalid access token after refresh")
+        except HTTPException as refresh_exception:
+            logger.warning(f"Failed to refresh access token: {refresh_exception.detail}")
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        except Exception as e:
+            logger.error(f"Unexpected error during token refresh: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     user = await auth_service.get_user_by_username(username=username)
     if user is None:
-        raise credentials_exception
+        logger.warning(f"User not found: {username}")
+        raise HTTPException(status_code=401, detail="User not found")
 
     return user
+
+
 
 
 async def get_db_session(db_connection: Connection = Depends(get_db_connection)):
@@ -149,3 +179,12 @@ async def get_db_session(db_connection: Connection = Depends(get_db_connection))
         Connection: The active database connection.
     """
     yield db_connection
+
+def get_token_tools() -> TokenTools:
+    """
+    Dependency to retrieve the token service.
+
+    Returns:
+        TokenTools: An instance of the token service.
+    """
+    return TokenTools(secret_key=settings.secret_key, algorithm=settings.algorithm)
