@@ -187,13 +187,3 @@ async def get_db_session(db_connection: Connection = Depends(get_db_connection))
         Connection: The active database connection.
     """
     yield db_connection
-
-def get_token_tools() -> TokenTools:
-    """
-    Dependency to retrieve the token service.
-
-    Returns:
-        TokenTools: An instance of the token service.
-    """
-    return TokenTools(secret_key=settings.secret_key, algorithm=settings.algorithm)
-

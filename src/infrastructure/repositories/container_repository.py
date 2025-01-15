@@ -69,15 +69,24 @@ class DockerContainerRepository(ContainerRepository):
             container_id (str): The ID of the container to start.
 
         Raises:
-            Exception: If the container is not found in the database.
-            ContainerNotFoundException: If the container is not found in Docker.
+            ContainerNotFoundException: If the container is not found in the database or Docker.
         """
         if not await self.is_container_in_db(container_id):
-            raise Exception(f"Container {container_id} not found in database")
+            logger.error(f"Container {container_id} not found in database")
+            raise ContainerNotFoundException(f"Container {container_id} not found in the database")
+        
         container = self.docker_helper.get_container_by_id(container_id)
         if not container:
-            raise ContainerNotFoundException(f"Container {container_id} not found")
-        container.start()
+            logger.error(f"Container {container_id} not found in Docker")
+            raise ContainerNotFoundException(f"Container {container_id} not found in Docker")
+
+        try:
+            container.start()
+            logger.info(f"Container {container_id} started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start container {container_id}: {str(e)}")
+            raise DockerAPIException(f"Error starting container {container_id}: {str(e)}")
+
 
     async def stop_container(self, container_id: str) -> None:
         """
@@ -87,15 +96,28 @@ class DockerContainerRepository(ContainerRepository):
             container_id (str): The ID of the container to stop.
 
         Raises:
-            Exception: If the container is not found in the database.
-            ContainerNotFoundException: If the container is not found in Docker.
+            ContainerNotFoundException: If the container is not found in the database or Docker.
+            DockerAPIException: If an error occurs while stopping the container.
         """
+        # Проверка, есть ли контейнер в базе данных
         if not await self.is_container_in_db(container_id):
-            raise Exception(f"Container {container_id} not found in database")
+            logger.error(f"Container {container_id} not found in database")
+            raise ContainerNotFoundException(f"Container {container_id} not found in the database")
+
+        # Проверка, есть ли контейнер в Docker
         container = self.docker_helper.get_container_by_id(container_id)
         if not container:
-            raise ContainerNotFoundException(f"Container {container_id} not found")
-        container.stop()
+            logger.error(f"Container {container_id} not found in Docker")
+            raise ContainerNotFoundException(f"Container {container_id} not found in Docker")
+
+        # Попытка остановить контейнер
+        try:
+            container.stop()
+            logger.info(f"Container {container_id} stopped successfully")
+        except Exception as e:
+            logger.error(f"Failed to stop container {container_id}: {str(e)}")
+            raise DockerAPIException(f"Error stopping container {container_id}: {str(e)}")
+
 
     async def restart_container(self, container_id: str) -> None:
         """

@@ -1,14 +1,14 @@
+# main.py
 from fastapi import FastAPI
 import asyncpg
 from config.config import settings
-from src.presentation.api import router as api_router
+from src.presentation.api import api_router
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-
 
 @app.on_event("startup")
 async def startup_event():
@@ -23,13 +23,13 @@ async def startup_event():
         logger.error(f"Ошибка при инициализации: {e}")
         raise e
 
-
 @app.on_event("shutdown")
 async def shutdown_event():
     if app.state.db_session:
         await app.state.db_session.close()
         logger.info("Пул соединений с базой данных закрыт.")
-    
+
+# Включаем центральный роутер с префиксом /api
 app.include_router(api_router, prefix="/api")
 
 @app.get("/config-info")
