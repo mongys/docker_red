@@ -224,7 +224,8 @@ async def refresh_access_token(
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     try:
-        new_access_token = await auth_service.refresh_access_token(refresh_token_value)
+        new_access_token = await auth_service.refresh_token(refresh_token_value)
+
         
         response.set_cookie(
             key="access_token",

@@ -62,4 +62,4 @@ class AuthService:
         return await self.user_repo.get_user_by_username(username)
 
     async def refresh_access_token(self, refresh_token: str) -> str:
-        return await self.refresh_token.refresh_access_token(refresh_token)
+        return await self.refresh_token(refresh_token)
