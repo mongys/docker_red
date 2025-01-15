@@ -1,4 +1,3 @@
-# src/presentation/routers/user_router.py
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm  # Добавлен импорт
@@ -16,7 +15,6 @@ from config.config import settings
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
-    # dependencies=[]  # Можно убрать, если не добавляются глобальные зависимости
 )
 
 logger = logging.getLogger(__name__)
