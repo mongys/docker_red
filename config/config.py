@@ -1,66 +1,57 @@
 from dynaconf import Dynaconf
 
+
 class AppSettings:
     def __init__(self):
         self._settings = Dynaconf(
             envvar_prefix="REDOS",
-            settings_files=["settings.toml"],
+            settings_files=["config\settings.toml"],
         )
 
-    @property
-    def secret_key(self):
-        return self._settings.SECRET_KEY
+    def __getitem__(self, key: str):
+        """
+        Позволяет доступ к настройкам через квадратные скобки.
+        Args:
+            key (str): Имя настройки.
+        Returns:
+            Any: Значение настройки.
+        Raises:
+            KeyError: Если настройка не найдена.
+        """
+        if key in self._settings:
+            return self._settings[key]
+        raise KeyError(f"Setting '{key}' not found.")
 
     @property
-    def algorithm(self):
-        return self._settings.ALGORITHM
+    def secret_key(self) -> str:
+        return self._settings.security.SECRET_KEY
 
     @property
-    def access_token_expire_minutes(self):
-        return self._settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    def algorithm(self) -> str:
+        return self._settings.security.ALGORITHM
 
     @property
-    def refresh_token_expire_days(self):
-        return self._settings.REFRESH_TOKEN_EXPIRE_DAYS
-
-
-    @property
-    def db_driver(self):
-        return self._settings.DB_DRIVER
+    def access_token_expire_minutes(self) -> int:
+        return self._settings.security.ACCESS_TOKEN_EXPIRE_MINUTES
 
     @property
-    def db_host(self):
-        return self._settings.DB_HOST
+    def refresh_token_expire_days(self) -> int:
+        return self._settings.security.REFRESH_TOKEN_EXPIRE_DAYS
 
     @property
-    def db_port(self):
-        return self._settings.DB_PORT
+    def database_dsn(self) -> str:
+        """
+        Генерирует строку подключения к базе данных (DSN).
+        Returns:
+            str: DSN строки для базы данных.
+        """
+        db = self._settings.database
+        return f"{db.DRIVER}://{db.USER}:{db.PASSWORD}@{db.HOST}:{db.PORT}/{db.NAME}"
 
     @property
-    def db_name(self):
-        return self._settings.DB_NAME
+    def docker_api_version(self) -> str:
+        return self._settings.docker.API_VERSION
 
-    @property
-    def db_user(self):
-        return self._settings.DB_USER
 
-    @property
-    def db_password(self):
-        return self._settings.DB_PASSWORD
-
-    @property
-    def database_dsn(self):
-        return "{}://{}:{}@{}:{}/{}".format(
-            self.db_driver,
-            self.db_user,
-            self.db_password,
-            self.db_host,
-            self.db_port,
-            self.db_name
-        )
-
-    @property
-    def docker_api_version(self):
-        return self._settings.DOCKER_API_VERSION
-
+# Экземпляр настроек
 settings = AppSettings()
