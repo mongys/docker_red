@@ -4,8 +4,9 @@ from asyncpg import Connection
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
 from src.application.services.container.container_info_service import ContainerInfoService
-from src.application.services.token.token_tools import TokenTools
+from src.application.services.token.token_tools import TokenCreator
 from src.application.services.token.refresh_token import RefreshToken
+from src.application.services.token.token_validator import TokenValidator
 from src.infrastructure.repositories.user_repository import DatabaseUserRepository
 from src.infrastructure.repositories.container_repository import DockerContainerRepository
 from src.domain.entities import User
@@ -20,27 +21,35 @@ def get_user_repo(request: Request) -> DatabaseUserRepository:
         raise HTTPException(status_code=500, detail="Database connection pool is not initialized")
     return DatabaseUserRepository(db_pool=db_pool)
 
+def get_token_validator() -> TokenValidator:
+    """
+    Dependency to retrieve the token validator service.
+    """
+    return TokenValidator(secret_key=settings.secret_key, algorithm=settings.algorithm)
+
 def get_container_repo(request: Request) -> DockerContainerRepository:
     db_pool = getattr(request.app.state, "db_session", None)
     if db_pool is None:
         raise HTTPException(status_code=500, detail="Database connection pool is not initialized")
     return DockerContainerRepository(db_pool=db_pool)
 
-def get_token_tools() -> TokenTools:
-    return TokenTools(secret_key=settings.secret_key, algorithm=settings.algorithm)
+def get_token_tools() -> TokenCreator:
+    return TokenCreator(secret_key=settings.secret_key, algorithm=settings.algorithm)
 
 def get_refresh_token(
-    token_tools: TokenTools = Depends(get_token_tools),
-    user_repo: DatabaseUserRepository = Depends(get_user_repo)
+    token_tools: TokenCreator = Depends(get_token_tools),
+    user_repo: DatabaseUserRepository = Depends(get_user_repo), 
+    token_validator: TokenValidator = Depends(get_token_validator)
 ) -> RefreshToken:
-    return RefreshToken(token_tools=token_tools, user_repo=user_repo)
+    return RefreshToken(token_tools=token_tools, user_repo=user_repo, token_validator=token_validator)
 
 def get_auth_service(
     user_repo: DatabaseUserRepository = Depends(get_user_repo),
-    token_tools: TokenTools = Depends(get_token_tools),
-    refresh_token: RefreshToken = Depends(get_refresh_token)
+    token_tools: TokenCreator = Depends(get_token_tools),
+    refresh_token: RefreshToken = Depends(get_refresh_token),
+    token_validator: TokenValidator = Depends(get_token_validator)
 ) -> AuthService:
-    return AuthService(user_repo=user_repo, token_tools=token_tools, refresh_token=refresh_token)
+    return AuthService(user_repo=user_repo, token_tools=token_tools, refresh_token=refresh_token, token_validator=token_validator)
 
 def get_container_action_service(
     container_repo: DockerContainerRepository = Depends(get_container_repo)
@@ -55,7 +64,7 @@ def get_container_info_service(
 async def get_current_user(
     request: Request,
     auth_service: AuthService = Depends(get_auth_service),
-    token_tools: TokenTools = Depends(get_token_tools)
+    token_validator: TokenValidator = Depends(get_token_validator)  # Используем TokenValidator вместо TokenCreator
 ) -> User:
     access_token = request.cookies.get("access_token")
 
@@ -64,11 +73,14 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
-        payload = token_tools.validate_token(access_token)
+        payload = token_validator.validate_token(access_token)  # Проверяем токен через TokenValidator
         username: str = payload.get("sub")
         if username is None:
             logger.warning("Invalid access token payload")
             raise HTTPException(status_code=401, detail="Invalid access token")
+    except HTTPException as e:
+        logger.warning(f"Token validation error: {e.detail}")
+        raise
     except Exception as e:
         logger.error(f"Unexpected error during token validation: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -79,6 +91,7 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="User not found")
 
     return user
+
 
 async def get_db_session(db_connection: Connection = Depends(get_db_connection)):
     yield db_connection

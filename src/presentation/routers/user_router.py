@@ -2,12 +2,18 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm  # Добавлен импорт
 from src.application.services.auth.auth_service import AuthService
-from src.presentation.dependencies import get_auth_service, get_current_user, get_refresh_token, get_token_tools
+from src.presentation.dependencies import (
+    get_auth_service,
+    get_current_user,
+    get_refresh_token,
+    get_token_tools,
+    get_token_validator)
 from src.presentation.schemas import UserCreateModel, UserResponseModel
 from src.domain.entities import User
 from src.domain.exceptions import UserAlreadyExistsException, AuthenticationException  # Добавлены импорты
-from src.application.services.token.token_tools import TokenTools
+from src.application.services.token.token_tools import TokenCreator
 from src.application.services.token.refresh_token import RefreshToken
+from src.application.services.token.token_validator import TokenValidator
 from typing import Dict
 from datetime import datetime, timedelta
 from config.config import settings
@@ -125,7 +131,8 @@ async def login_for_access_token(
 async def get_current_tokens(
     request: Request,
     current_user: User = Depends(get_current_user),
-    token_tools: TokenTools = Depends(get_token_tools)
+    token_tools: TokenCreator = Depends(get_token_tools),
+    token_validator: TokenValidator = Depends(get_token_validator)
 ) -> Dict[str, str]:
     """
     Retrieves the expiration times for the current access and refresh tokens for the authenticated user.
@@ -133,7 +140,7 @@ async def get_current_tokens(
     Args:
         request (Request): The HTTP request object containing cookies.
         current_user (User): The currently authenticated user, provided by the dependency.
-        token_tools (TokenTools): The service for handling token operations.
+        token_tools (TokenCreator): The service for handling token operations.
 
     Returns:
         Dict[str, str]: A dictionary containing expiration times of access and refresh tokens.
@@ -149,8 +156,8 @@ async def get_current_tokens(
             raise HTTPException(status_code=401, detail="Refresh token is missing.")
 
         # Декодируем токены для получения времени истечения
-        access_payload = token_tools.validate_token(access_token)
-        refresh_payload = token_tools.validate_token(refresh_token)
+        access_payload = token_validator.validate_token(access_token)
+        refresh_payload = token_validator.validate_token(refresh_token)
 
         return {
             "access_token_expiry": datetime.utcfromtimestamp(access_payload["exp"]).isoformat(),

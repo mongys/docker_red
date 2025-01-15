@@ -1,6 +1,7 @@
 from datetime import timedelta
 from fastapi import HTTPException
-from src.application.services.token.token_tools import TokenTools
+from src.application.services.token.token_validator import TokenValidator
+from src.application.services.token.token_tools import TokenCreator
 from src.domain.repositories import UserRepository
 from config.config import settings
 import logging
@@ -8,9 +9,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 class RefreshToken:
-    def __init__(self, token_tools: TokenTools, user_repo: UserRepository):
+    def __init__(self, token_tools: TokenCreator, user_repo: UserRepository, token_validator: TokenValidator):
         self.token_tools = token_tools
         self.user_repo = user_repo
+        self.token_validator = token_validator
+
 
     async def __call__(self, refresh_token: str) -> str:
         """
@@ -26,7 +29,7 @@ class RefreshToken:
             HTTPException: If the refresh token is invalid or expired.
         """
         try:
-            payload = self.token_tools.validate_token(refresh_token)
+            payload = self.token_validator.validate_token(refresh_token)
             logger.info(f"Refresh token payload: {payload}")
 
             if not payload or payload.get("type") != "refresh":

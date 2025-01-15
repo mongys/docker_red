@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class TokenTools:
+class TokenCreator:
     def __init__(self, secret_key: str = settings.secret_key, algorithm: str = settings.algorithm):
         self.secret_key = secret_key
         self.algorithm = algorithm
@@ -45,17 +45,4 @@ class TokenTools:
             raise HTTPException(status_code=500, detail=f"{token_type.capitalize()} token creation failed")
 
 
-    #вынести в отдельный класс
-    def validate_token(self, token: str) -> dict:
-        try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            logger.info(f"Validated token payload: {payload}")
-            return payload
-        except jwt.ExpiredSignatureError:
-            logger.warning("Token has expired")
-            raise HTTPException(status_code=401, detail="Token has expired")
-        except jwt.InvalidTokenError as e:
-            logger.error(f"Invalid token error: {str(e)}")
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
 

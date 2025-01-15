@@ -3,8 +3,9 @@ from typing import Optional
 from src.domain.entities import User
 from src.domain.repositories import UserRepository
 from src.domain.exceptions import AuthenticationException, UserAlreadyExistsException
-from src.application.services.token.token_tools import TokenTools
+from src.application.services.token.token_tools import TokenCreator
 from src.application.services.token.refresh_token import RefreshToken
+from src.application.services.token.token_validator import TokenValidator
 from passlib.context import CryptContext
 import logging
 
@@ -12,10 +13,11 @@ logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthService:
-    def __init__(self, user_repo: UserRepository, token_tools: TokenTools, refresh_token: RefreshToken):
+    def __init__(self, user_repo: UserRepository, token_tools: TokenCreator, refresh_token: RefreshToken, token_validator: TokenValidator):
         self.user_repo = user_repo
         self.token_tools = token_tools
         self.refresh_token = refresh_token
+        self.token_validator = token_validator
 
     async def authenticate_user(self, username: str, password: str) -> User:
         logger.info(f"Authenticating user: {username}")
@@ -56,7 +58,7 @@ class AuthService:
         return self.token_tools.create_token(data, token_type, expires_delta)
 
     def validate_token(self, token: str) -> dict:
-        return self.token_tools.validate_token(token)
+        return self.token_validator.validate_token(token)
 
     async def get_user_by_username(self, username: str) -> Optional[User]:
         return await self.user_repo.get_user_by_username(username)
