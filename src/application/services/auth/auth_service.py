@@ -3,8 +3,8 @@ from typing import Optional
 from src.domain.entities import User
 from src.domain.repositories import UserRepository
 from src.domain.exceptions import AuthenticationException, UserAlreadyExistsException
-from src.application.services.token.token_tools import TokenCreator
-from src.application.services.token.refresh_token import RefreshToken
+from src.application.services.token.token_creator import TokenCreator
+from src.application.services.token.token_refresher import RefreshToken
 from src.application.services.token.token_validator import TokenValidator
 from passlib.context import CryptContext
 import logging
@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthService:
-    def __init__(self, user_repo: UserRepository, token_tools: TokenCreator, refresh_token: RefreshToken, token_validator: TokenValidator):
+    def __init__(self, user_repo: UserRepository, TokenCreator: TokenCreator, refresh_token: RefreshToken, token_validator: TokenValidator):
         self.user_repo = user_repo
-        self.token_tools = token_tools
+        self.TokenCreator = TokenCreator
         self.refresh_token = refresh_token
         self.token_validator = token_validator
 
@@ -55,7 +55,7 @@ class AuthService:
         return pwd_context.verify(plain_password, hashed_password)
 
     def create_token(self, data: dict, token_type: str, expires_delta: Optional[timedelta] = None) -> str:
-        return self.token_tools.create_token(data, token_type, expires_delta)
+        return self.TokenCreator.create_token(data, token_type, expires_delta)
 
     def validate_token(self, token: str) -> dict:
         return self.token_validator.validate_token(token)

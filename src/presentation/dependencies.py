@@ -4,8 +4,8 @@ from asyncpg import Connection
 from src.application.services.auth.auth_service import AuthService
 from src.application.services.container.container_action_service import ContainerActionService
 from src.application.services.container.container_info_service import ContainerInfoService
-from src.application.services.token.token_tools import TokenCreator
-from src.application.services.token.refresh_token import RefreshToken
+from src.application.services.token.token_creator import TokenCreator
+from src.application.services.token.token_refresher import RefreshToken
 from src.application.services.token.token_validator import TokenValidator
 from src.infrastructure.repositories.user_repository import DatabaseUserRepository
 from src.infrastructure.repositories.container_repository import DockerContainerRepository
@@ -33,23 +33,23 @@ def get_container_repo(request: Request) -> DockerContainerRepository:
         raise HTTPException(status_code=500, detail="Database connection pool is not initialized")
     return DockerContainerRepository(db_pool=db_pool)
 
-def get_token_tools() -> TokenCreator:
+def get_TokenCreator() -> TokenCreator:
     return TokenCreator(secret_key=settings.secret_key, algorithm=settings.algorithm)
 
 def get_refresh_token(
-    token_tools: TokenCreator = Depends(get_token_tools),
+    TokenCreator: TokenCreator = Depends(get_TokenCreator),
     user_repo: DatabaseUserRepository = Depends(get_user_repo), 
     token_validator: TokenValidator = Depends(get_token_validator)
 ) -> RefreshToken:
-    return RefreshToken(token_tools=token_tools, user_repo=user_repo, token_validator=token_validator)
+    return RefreshToken(TokenCreator=TokenCreator, user_repo=user_repo, token_validator=token_validator)
 
 def get_auth_service(
     user_repo: DatabaseUserRepository = Depends(get_user_repo),
-    token_tools: TokenCreator = Depends(get_token_tools),
+    TokenCreator: TokenCreator = Depends(get_TokenCreator),
     refresh_token: RefreshToken = Depends(get_refresh_token),
     token_validator: TokenValidator = Depends(get_token_validator)
 ) -> AuthService:
-    return AuthService(user_repo=user_repo, token_tools=token_tools, refresh_token=refresh_token, token_validator=token_validator)
+    return AuthService(user_repo=user_repo, TokenCreator=TokenCreator, refresh_token=refresh_token, token_validator=token_validator)
 
 def get_container_action_service(
     container_repo: DockerContainerRepository = Depends(get_container_repo)

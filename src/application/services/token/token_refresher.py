@@ -1,7 +1,7 @@
 from datetime import timedelta
 from fastapi import HTTPException
 from src.application.services.token.token_validator import TokenValidator
-from src.application.services.token.token_tools import TokenCreator
+from src.application.services.token.token_creator import TokenCreator
 from src.domain.repositories import UserRepository
 from config.config import settings
 import logging
@@ -9,8 +9,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 class RefreshToken:
-    def __init__(self, token_tools: TokenCreator, user_repo: UserRepository, token_validator: TokenValidator):
-        self.token_tools = token_tools
+    def __init__(self, TokenCreator: TokenCreator, user_repo: UserRepository, token_validator: TokenValidator):
+        self.TokenCreator = TokenCreator
         self.user_repo = user_repo
         self.token_validator = token_validator
 
@@ -46,7 +46,7 @@ class RefreshToken:
                 logger.warning(f"User not found: {username}")
                 raise HTTPException(status_code=401, detail="User not found")
 
-            new_access_token = self.token_tools.create_token(
+            new_access_token = self.TokenCreator.create_token(
                 data={"sub": username},
                 token_type="access",
                 expires_delta=timedelta(minutes=settings.access_token_expire_minutes)

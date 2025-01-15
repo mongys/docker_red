@@ -6,13 +6,13 @@ from src.presentation.dependencies import (
     get_auth_service,
     get_current_user,
     get_refresh_token,
-    get_token_tools,
+    get_TokenCreator,
     get_token_validator)
 from src.presentation.schemas import UserCreateModel, UserResponseModel
 from src.domain.entities import User
 from src.domain.exceptions import UserAlreadyExistsException, AuthenticationException  # Добавлены импорты
-from src.application.services.token.token_tools import TokenCreator
-from src.application.services.token.refresh_token import RefreshToken
+from src.application.services.token.token_creator import TokenCreator
+from src.application.services.token.token_refresher import RefreshToken
 from src.application.services.token.token_validator import TokenValidator
 from typing import Dict
 from datetime import datetime, timedelta
@@ -131,7 +131,7 @@ async def login_for_access_token(
 async def get_current_tokens(
     request: Request,
     current_user: User = Depends(get_current_user),
-    token_tools: TokenCreator = Depends(get_token_tools),
+    TokenCreator: TokenCreator = Depends(get_TokenCreator),
     token_validator: TokenValidator = Depends(get_token_validator)
 ) -> Dict[str, str]:
     """
@@ -140,7 +140,7 @@ async def get_current_tokens(
     Args:
         request (Request): The HTTP request object containing cookies.
         current_user (User): The currently authenticated user, provided by the dependency.
-        token_tools (TokenCreator): The service for handling token operations.
+        TokenCreator (TokenCreator): The service for handling token operations.
 
     Returns:
         Dict[str, str]: A dictionary containing expiration times of access and refresh tokens.
