@@ -5,8 +5,11 @@ from config.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class TokenValidator:
-    def __init__(self, secret_key: str = settings.secret_key, algorithm: str = settings.algorithm):
+    def __init__(
+        self, secret_key: str = settings.secret_key, algorithm: str = settings.algorithm
+    ):
         self.secret_key = secret_key
         self.algorithm = algorithm
 

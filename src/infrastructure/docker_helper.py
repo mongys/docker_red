@@ -7,6 +7,7 @@ from src.domain.exceptions import DockerAPIException
 
 logger = logging.getLogger(__name__)
 
+
 class DockerHelper:
     """
     A helper class to interact with the Docker API using the docker Python SDK.
@@ -24,7 +25,7 @@ class DockerHelper:
 
         Returns:
             List: A list of container objects.
-        
+
         Raises:
             DockerAPIException: If there is an error listing the containers.
         """
@@ -69,7 +70,9 @@ class DockerHelper:
         Raises:
             DockerAPIException: If there is an error during the image build.
         """
-        build_path = os.path.join(repo_dir, dockerfile_dir) if dockerfile_dir else repo_dir
+        build_path = (
+            os.path.join(repo_dir, dockerfile_dir) if dockerfile_dir else repo_dir
+        )
         image_tag = os.path.basename(repo_dir)
         try:
             image, _ = self.client.images.build(path=build_path, tag=image_tag)
@@ -93,7 +96,9 @@ class DockerHelper:
             DockerAPIException: If there is an error running the container.
         """
         try:
-            container = self.client.containers.run(image=image_tag, detach=True, tty=True, stdin_open=True)
+            container = self.client.containers.run(
+                image=image_tag, detach=True, tty=True, stdin_open=True
+            )
             logger.info(f"Container {container.id} started successfully")
             return container
         except APIError as e:

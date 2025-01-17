@@ -8,12 +8,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class RefreshToken:
-    def __init__(self, TokenCreator: TokenCreator, user_repo: UserRepository, token_validator: TokenValidator):
+    def __init__(
+        self,
+        TokenCreator: TokenCreator,
+        user_repo: UserRepository,
+        token_validator: TokenValidator,
+    ):
         self.TokenCreator = TokenCreator
         self.user_repo = user_repo
         self.token_validator = token_validator
-
 
     async def __call__(self, refresh_token: str) -> str:
         """
@@ -34,7 +39,9 @@ class RefreshToken:
 
             if not payload or payload.get("type") != "refresh":
                 logger.warning("Invalid token type for refresh")
-                raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+                raise HTTPException(
+                    status_code=401, detail="Invalid or expired refresh token"
+                )
 
             username = payload.get("sub")
             if not username:
@@ -49,7 +56,7 @@ class RefreshToken:
             new_access_token = self.TokenCreator.create_token(
                 data={"sub": username},
                 token_type="access",
-                expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
+                expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
             )
 
             logger.info(f"Generated new access token for user: {username}")

@@ -12,8 +12,15 @@ import logging
 logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 class AuthService:
-    def __init__(self, user_repo: UserRepository, TokenCreator: TokenCreator, refresh_token: RefreshToken, token_validator: TokenValidator):
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        TokenCreator: TokenCreator,
+        refresh_token: RefreshToken,
+        token_validator: TokenValidator,
+    ):
         self.user_repo = user_repo
         self.TokenCreator = TokenCreator
         self.refresh_token = refresh_token
@@ -43,7 +50,9 @@ class AuthService:
             logger.warning(f"User {username} already exists")
             raise UserAlreadyExistsException("User already exists")
 
-        hashed_password = self.get_password_hash(password) #отдельный класс для паролей
+        hashed_password = self.get_password_hash(
+            password
+        )
         user = User(username=username, hashed_password=hashed_password)
         await self.user_repo.create_user(user)
         logger.info(f"User {username} created successfully")
@@ -54,7 +63,9 @@ class AuthService:
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         return pwd_context.verify(plain_password, hashed_password)
 
-    def create_token(self, data: dict, token_type: str, expires_delta: Optional[timedelta] = None) -> str:
+    def create_token(
+        self, data: dict, token_type: str, expires_delta: Optional[timedelta] = None
+    ) -> str:
         return self.TokenCreator.create_token(data, token_type, expires_delta)
 
     def validate_token(self, token: str) -> dict:

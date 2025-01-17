@@ -21,5 +21,6 @@ class ContainerNotFoundException(DomainException):
 class DockerAPIException(DomainException):
     pass
 
+
 class UserNotFoundException(DomainException):
     pass

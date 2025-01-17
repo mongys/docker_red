@@ -1,6 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
-from fastapi.security import OAuth2PasswordRequestForm  # Добавлен импорт
+from fastapi.security import OAuth2PasswordRequestForm  
 from src.application.services.auth.auth_service import AuthService
 from src.presentation.dependencies import (
     get_auth_service,
@@ -10,7 +10,7 @@ from src.presentation.dependencies import (
     get_token_validator)
 from src.presentation.schemas import UserCreateModel, UserResponseModel
 from src.domain.entities import User
-from src.domain.exceptions import UserAlreadyExistsException, AuthenticationException  # Добавлены импорты
+from src.domain.exceptions import UserAlreadyExistsException, AuthenticationException  
 from src.application.services.token.token_creator import TokenCreator
 from src.application.services.token.token_refresher import RefreshToken
 from src.application.services.token.token_validator import TokenValidator
@@ -130,8 +130,8 @@ async def login_for_access_token(
 )
 async def get_current_tokens(
     request: Request,
-    current_user: User = Depends(get_current_user),
-    TokenCreator: TokenCreator = Depends(get_TokenCreator),
+    current_user: User = Depends(get_current_user), 
+    TokenCreator: TokenCreator = Depends(get_TokenCreator), 
     token_validator: TokenValidator = Depends(get_token_validator)
 ) -> Dict[str, str]:
     """
@@ -146,7 +146,6 @@ async def get_current_tokens(
         Dict[str, str]: A dictionary containing expiration times of access and refresh tokens.
     """
     try:
-        # Извлекаем токены из куки
         access_token = request.cookies.get("access_token")
         refresh_token = request.cookies.get("refresh_token")
 
@@ -209,7 +208,7 @@ async def refresh_access_token(
     request: Request,
     response: Response,
     auth_service: AuthService = Depends(get_auth_service),
-    refresh_token: RefreshToken = Depends(get_refresh_token)
+    refresh_token: RefreshToken = Depends(get_refresh_token) 
 ) -> Dict[str, str]:
     """
     Refreshes an expired access token using the refresh token stored in the HttpOnly cookie.

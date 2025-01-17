@@ -1,16 +1,28 @@
 import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from src.application.services.container.container_action_service import ContainerActionService
-from src.application.services.container.container_info_service import ContainerInfoService
+from src.application.services.container.container_action_service import (
+    ContainerActionService,
+)
+from src.application.services.container.container_info_service import (
+    ContainerInfoService,
+)
 from src.domain.exceptions import ContainerNotFoundException, DockerAPIException
-from src.presentation.dependencies import get_container_action_service, get_container_info_service, get_current_user
-from src.presentation.schemas import ContainerInfoModel, ContainerActionRequest, CloneAndRunRequest
+from src.presentation.dependencies import (
+    get_container_action_service,
+    get_container_info_service,
+    get_current_user,
+)
+from src.presentation.schemas import (
+    ContainerInfoModel,
+    ContainerActionRequest,
+    CloneAndRunRequest,
+)
 from typing import List, Dict, Any
 
 router = APIRouter(
     prefix="/containers",
     tags=["Containers"],
-    dependencies=[Depends(get_current_user)]  # Все эндпоинты защищены
+    dependencies=[Depends(get_current_user)],  # All endpoints are secured
 )
 
 logger = logging.getLogger(__name__)
@@ -23,14 +35,28 @@ logger = logging.getLogger(__name__)
     description="Returns a list of all containers available on the system.",
 )
 async def list_containers(
-    container_info_service: ContainerInfoService = Depends(get_container_info_service)
+    container_info_service: ContainerInfoService = Depends(get_container_info_service),
 ) -> List[ContainerInfoModel]:
+    """
+    Retrieve a list of all Docker containers on the system.
+
+    Args:
+        container_info_service (ContainerInfoService): Service to fetch container information.
+
+    Returns:
+        List[ContainerInfoModel]: List of containers with detailed information.
+
+    Raises:
+        HTTPException: If there is an error communicating with the Docker API.
+    """
     try:
         containers = await container_info_service.list_containers()
         return [ContainerInfoModel(**container.__dict__) for container in containers]
     except Exception as exc:
         logger.error(f"Error listing containers: {exc}")
-        raise HTTPException(status_code=502, detail="Error communicating with Docker API")
+        raise HTTPException(
+            status_code=502, detail="Error communicating with Docker API"
+        )
 
 
 @router.post(
@@ -41,8 +67,23 @@ async def list_containers(
 )
 async def start_container(
     request: ContainerActionRequest,
-    container_action_service: ContainerActionService = Depends(get_container_action_service),
+    container_action_service: ContainerActionService = Depends(
+        get_container_action_service
+    ),
 ) -> Dict[str, str]:
+    """
+    Start a specific Docker container by its ID.
+
+    Args:
+        request (ContainerActionRequest): Request containing the container ID to start.
+        container_action_service (ContainerActionService): Service to perform container actions.
+
+    Returns:
+        Dict[str, str]: Message confirming the container has started.
+
+    Raises:
+        HTTPException: If the container is not found.
+    """
     try:
         await container_action_service.start_container(request.container_id)
         return {"message": f"Container {request.container_id} started"}
@@ -58,8 +99,23 @@ async def start_container(
 )
 async def stop_container(
     request: ContainerActionRequest,
-    container_action_service: ContainerActionService = Depends(get_container_action_service),
+    container_action_service: ContainerActionService = Depends(
+        get_container_action_service
+    ),
 ) -> Dict[str, str]:
+    """
+    Stop a specific Docker container by its ID.
+
+    Args:
+        request (ContainerActionRequest): Request containing the container ID to stop.
+        container_action_service (ContainerActionService): Service to perform container actions.
+
+    Returns:
+        Dict[str, str]: Message confirming the container has stopped.
+
+    Raises:
+        HTTPException: If the container is not found.
+    """
     try:
         await container_action_service.stop_container(request.container_id)
         return {"message": f"Container {request.container_id} stopped"}
@@ -75,8 +131,23 @@ async def stop_container(
 )
 async def restart_container(
     request: ContainerActionRequest,
-    container_action_service: ContainerActionService = Depends(get_container_action_service),
+    container_action_service: ContainerActionService = Depends(
+        get_container_action_service
+    ),
 ) -> Dict[str, str]:
+    """
+    Restart a specific Docker container by its ID.
+
+    Args:
+        request (ContainerActionRequest): Request containing the container ID to restart.
+        container_action_service (ContainerActionService): Service to perform container actions.
+
+    Returns:
+        Dict[str, str]: Message confirming the container has restarted.
+
+    Raises:
+        HTTPException: If the container is not found.
+    """
     try:
         await container_action_service.restart_container(request.container_id)
         return {"message": f"Container {request.container_id} restarted"}
@@ -93,8 +164,24 @@ async def restart_container(
 async def delete_container(
     request: ContainerActionRequest,
     force: bool = False,
-    container_action_service: ContainerActionService = Depends(get_container_action_service),
+    container_action_service: ContainerActionService = Depends(
+        get_container_action_service
+    ),
 ) -> Dict[str, str]:
+    """
+    Delete a specific Docker container by its ID.
+
+    Args:
+        request (ContainerActionRequest): Request containing the container ID to delete.
+        force (bool): Whether to forcibly remove the container.
+        container_action_service (ContainerActionService): Service to perform container actions.
+
+    Returns:
+        Dict[str, str]: Message confirming the container has been deleted.
+
+    Raises:
+        HTTPException: If the container is not found.
+    """
     try:
         await container_action_service.delete_container(request.container_id, force)
         return {"message": f"Container {request.container_id} deleted"}
@@ -111,9 +198,26 @@ async def delete_container(
 async def clone_and_run_container(
     request: CloneAndRunRequest,
     background_tasks: BackgroundTasks,
-    container_action_service: ContainerActionService = Depends(get_container_action_service),
+    container_action_service: ContainerActionService = Depends(
+        get_container_action_service
+    ),
 ) -> Dict[str, str]:
-    background_tasks.add_task(container_action_service.clone_and_run_container, request.github_url, request.dockerfile_dir)
+    """
+    Clone a GitHub repository, build a Docker image, and run a container.
+
+    Args:
+        request (CloneAndRunRequest): Request containing GitHub URL and Dockerfile directory.
+        background_tasks (BackgroundTasks): Background task manager to handle asynchronous tasks.
+        container_action_service (ContainerActionService): Service to perform container actions.
+
+    Returns:
+        Dict[str, str]: Message confirming the container cloning and starting process.
+    """
+    background_tasks.add_task(
+        container_action_service.clone_and_run_container,
+        request.github_url,
+        request.dockerfile_dir,
+    )
     return {"message": "Container successfully cloned and started"}
 
 
@@ -127,6 +231,19 @@ async def get_container_stats(
     container_id: str,
     container_info_service: ContainerInfoService = Depends(get_container_info_service),
 ) -> Dict[str, Any]:
+    """
+    Retrieve resource usage statistics for a specific Docker container.
+
+    Args:
+        container_id (str): ID of the container to retrieve statistics for.
+        container_info_service (ContainerInfoService): Service to fetch container statistics.
+
+    Returns:
+        Dict[str, Any]: Dictionary containing resource usage statistics.
+
+    Raises:
+        HTTPException: If the container is not found.
+    """
     try:
         stats = await container_info_service.get_container_stats(container_id)
         return {
@@ -149,6 +266,19 @@ async def get_container_info(
     container_id: str,
     container_info_service: ContainerInfoService = Depends(get_container_info_service),
 ) -> ContainerInfoModel:
+    """
+    Retrieve detailed information about a specific Docker container.
+
+    Args:
+        container_id (str): ID of the container to retrieve information for.
+        container_info_service (ContainerInfoService): Service to fetch container information.
+
+    Returns:
+        ContainerInfoModel: Detailed information about the container.
+
+    Raises:
+        HTTPException: If the container is not found.
+    """
     try:
         container = await container_info_service.get_container_info(container_id)
         return ContainerInfoModel(**container.__dict__)

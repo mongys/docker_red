@@ -5,6 +5,7 @@ from src.domain.exceptions import DockerAPIException
 
 logger = logging.getLogger(__name__)
 
+
 class GitHelper:
     """
     A helper class for managing Git repositories.
