@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import asyncpg
 from config.config import settings
-from src.presentation.api import api_router
+from src.presentation.router import api_router
 import logging
 
 logging.basicConfig(level=logging.INFO)

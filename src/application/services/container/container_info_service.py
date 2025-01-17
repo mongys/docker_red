@@ -17,5 +17,4 @@ class ContainerInfoService:
         return await self.container_repo.get_container_stats(container_id)
 
     async def get_container_info(self, container_id: str) -> Optional[Container]:
-        """Retrieve detailed information about a specific container."""
         return await self.container_repo.get_container_info(container_id)
