@@ -1,10 +1,16 @@
+[security]
 SECRET_KEY = ""
 ALGORITHM = ""
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-DB_HOST = ""
-DB_PORT = 
-DB_NAME = ""
-DB_USER = ""
-DB_PASSWORD = ""
-DOCKER_API_VERSION = ""
-DB_DRIVER=""
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+[database]
+DRIVER = ""
+HOST = ""
+PORT = 
+NAME = ""
+USER = ""
+PASSWORD = ""
+
+[docker]
+API_VERSION = "1.41"
