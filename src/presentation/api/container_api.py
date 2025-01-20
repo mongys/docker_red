@@ -6,7 +6,7 @@ from src.application.services.container.container_action_service import (
 from src.application.services.container.container_info_service import (
     ContainerInfoService,
 )
-from src.domain.exceptions import ContainerNotFoundException, DockerAPIException
+from src.domain.exceptions import ContainerNotFoundException
 from src.presentation.dependencies import (
     get_container_action_service,
     get_container_info_service,
