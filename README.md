@@ -38,6 +38,11 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(100) UNIQUE NOT NULL,
     hashed_password TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS containers (
+    id VARCHAR(255) PRIMARY KEY,       
+    name VARCHAR(255) NOT NULL,        
+    image VARCHAR(255) NOT NULL        
+);
 
 
 Структура Git Flow
