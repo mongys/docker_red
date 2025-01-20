@@ -61,12 +61,12 @@ async def signup(
 
 
 @router.post(
-    "/token",
+    "/signup",
     response_model=Dict[str, str],
     summary="Authenticate user and set tokens in cookies",
     description="Authenticates a user and sets access and refresh tokens in HttpOnly cookies.",
 )
-async def login_for_access_token(
+async def signup(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
@@ -116,58 +116,6 @@ async def login_for_access_token(
     except Exception as e:
         logger.error(f"Unexpected error during login: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@router.get(
-    "/tokens/current",
-    response_model=Dict[str, str],
-    summary="Get current tokens' expiration info",
-    description="Returns the expiration times for the current access and refresh tokens for the authenticated user.",
-    responses={
-        200: {"description": "Tokens expiration information retrieved successfully."},
-        401: {"description": "Unauthorized access."},
-    }
-)
-async def get_current_tokens(
-    request: Request,
-    current_user: User = Depends(get_current_user), 
-    TokenCreator: TokenCreator = Depends(get_TokenCreator), 
-    token_validator: TokenValidator = Depends(get_token_validator)
-) -> Dict[str, str]:
-    """
-    Retrieves the expiration times for the current access and refresh tokens for the authenticated user.
-
-    Args:
-        request (Request): The HTTP request object containing cookies.
-        current_user (User): The currently authenticated user, provided by the dependency.
-        TokenCreator (TokenCreator): The service for handling token operations.
-
-    Returns:
-        Dict[str, str]: A dictionary containing expiration times of access and refresh tokens.
-    """
-    try:
-        access_token = request.cookies.get("access_token")
-        refresh_token = request.cookies.get("refresh_token")
-
-        if not access_token:
-            raise HTTPException(status_code=401, detail="Access token is missing.")
-        if not refresh_token:
-            raise HTTPException(status_code=401, detail="Refresh token is missing.")
-
-        # Декодируем токены для получения времени истечения
-        access_payload = token_validator.validate_token(access_token)
-        refresh_payload = token_validator.validate_token(refresh_token)
-
-        return {
-            "access_token_expiry": datetime.utcfromtimestamp(access_payload["exp"]).isoformat(),
-            "refresh_token_expiry": datetime.utcfromtimestamp(refresh_payload["exp"]).isoformat(),
-        }
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        logger.error(f"Error retrieving tokens: {str(e)}")
-        raise HTTPException(status_code=500, detail="Could not retrieve tokens and expiration info.")
-
 
 @router.post(
     "/logout",
